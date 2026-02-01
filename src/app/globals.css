@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+}
+
+:root {
+  /* SERENITY THEME - Psychiatrie / Calme */
+
+  /* Background: Off-white / Creamy */
+  --background: hsl(40 20% 99%);
+  /* Text: Soft Charcoal, not harsh black */
+  --foreground: hsl(220 15% 20%);
+
+  /* Primary: Sage Green (Apaisant, Confiance) */
+  --primary: hsl(150 15% 35%);
+  --primary-foreground: hsl(0 0% 100%);
+
+  /* Secondary: Soft Lavender / Mist (Confort) */
+  --secondary: hsl(260 15% 96%);
+  --secondary-foreground: hsl(220 15% 30%);
+
+  /* Accent: Muted Agave / Teal */
+  --accent: hsl(180 20% 90%);
+  --accent-foreground: hsl(180 30% 25%);
+
+  /* Muted elements */
+  --muted: hsl(60 5% 96%);
+  --muted-foreground: hsl(220 10% 55%);
+
+  /* Errors: Soft Coral instead of harsh red */
+  --destructive: hsl(0 60% 75%);
+  --destructive-foreground: hsl(0 0% 100%);
+
+  --border: hsl(220 10% 90%);
+  --input: hsl(220 10% 90%);
+  --ring: hsl(150 15% 35%);
+
+  /* More rounded for friendly feel */
+  --radius-lg: 1rem;
+  --radius-md: 0.75rem;
+  --radius-sm: 0.5rem;
+}
+
+.dark {
+  /* Zen Dark Mode - Deep Slate & Muted Greens */
+  --background: hsl(220 20% 12%);
+  --foreground: hsl(220 10% 90%);
+
+  --primary: hsl(150 15% 45%);
+  --primary-foreground: hsl(0 0% 100%);
+
+  --secondary: hsl(220 20% 18%);
+  --secondary-foreground: hsl(220 10% 90%);
+
+  --muted: hsl(220 20% 18%);
+  --muted-foreground: hsl(220 10% 60%);
+
+  --accent: hsl(220 20% 20%);
+  --accent-foreground: hsl(220 10% 90%);
+
+  --destructive: hsl(0 50% 60%);
+  --destructive-foreground: hsl(0 0% 100%);
+
+  --border: hsl(220 20% 20%);
+  --input: hsl(220 20% 20%);
+  --ring: hsl(150 15% 45%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}

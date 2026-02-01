@@ -1,0 +1,5 @@
+-- AJOUT DE LA COLONNE MANQUANTE
+ALTER TABLE public.notes ADD COLUMN IF NOT EXISTS ai_summary text;
+
+-- RECHARGEMENT DU CACHE SUPABASE
+NOTIFY pgrst, 'reload config';
