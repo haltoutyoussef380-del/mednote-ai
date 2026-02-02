@@ -259,6 +259,30 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
 
 
 
+    // Fonctions de sauvegarde manuelle (Réutilisée Header + Footer)
+    const handleManualSave = async () => {
+        console.log('--- Manual Save Triggered (Async) ---');
+        stopListening();
+
+        console.log('Preparing data for Patient:', id);
+
+        const formData = new FormData();
+        formData.append('patient_id', id);
+        formData.append('content', JSON.stringify(data));
+        formData.append('type', 'Observation Psychiatrique');
+
+        console.log('FormData created. Submitting to Server Action...');
+        try {
+            // @ts-ignore
+            const result = await createNote(formData);
+            if (result?.error) {
+                alert("ERREUR D'ENREGISTREMENT : " + result.error);
+            }
+        } catch (e) {
+            console.log("Navigation en cours (ou erreur redirect)...", e);
+        }
+    };
+
     return (
         <div className="max-w-4xl mx-auto py-6">
 
@@ -271,28 +295,7 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                     {hasMounted && hasSupport && (
                         <div className="flex space-x-3">
                             <button
-                                onClick={async () => {
-                                    console.log('--- Manual Save Triggered (Async) ---');
-                                    stopListening();
-
-                                    console.log('Preparing data for Patient:', id);
-
-                                    const formData = new FormData();
-                                    formData.append('patient_id', id);
-                                    formData.append('content', JSON.stringify(data));
-                                    formData.append('type', 'Observation Psychiatrique');
-
-                                    console.log('FormData created. Submitting to Server Action...');
-                                    try {
-                                        // @ts-ignore
-                                        const result = await createNote(formData);
-                                        if (result?.error) {
-                                            alert("ERREUR D'ENREGISTREMENT : " + result.error);
-                                        }
-                                    } catch (e) {
-                                        console.log("Navigation en cours (ou erreur redirect)...", e);
-                                    }
-                                }}
+                                onClick={handleManualSave}
                                 className="flex items-center space-x-2 px-4 py-2 rounded-full font-bold bg-green-600 text-white hover:bg-green-700 shadow-md transition-all"
                             >
                                 <span>💾</span>
@@ -522,18 +525,13 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                             Suivant →
                         </button>
                     ) : (
-                        <form action={createNote}>
-                            <input type="hidden" name="patient_id" value={id} />
-                            <input type="hidden" name="content" value={JSON.stringify(data)} />
-                            <input type="hidden" name="type" value="Observation Psychiatrique" />
-
-                            <button
-                                type="submit"
-                                className="px-8 py-3 rounded-lg bg-green-600 text-white font-bold shadow-lg hover:bg-green-500 animate-pulse-slow"
-                            >
-                                💾 TERMINER ET ENREGISTRER
-                            </button>
-                        </form>
+                        <button
+                            onClick={handleManualSave}
+                            className="px-8 py-3 rounded-lg bg-green-600 text-white font-bold shadow-lg hover:bg-green-500 animate-pulse-slow flex items-center gap-2"
+                        >
+                            <span>💾</span>
+                            <span>TERMINER ET ENREGISTRER</span>
+                        </button>
                     )}
                 </div>
 
