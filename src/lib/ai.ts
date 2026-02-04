@@ -56,13 +56,13 @@ export async function extractPatientInfo(text: string): Promise<{ success: boole
                     content: `Tu es un expert en extraction de données médicales à partir de dictées orales bruitées.
       Ton but est d'extraire les infos patient en JSON strict.
       
-      Règles de correction :
-      - "Sète" / "Set" -> 7
-      - "H a l t o i t" -> "Haltoit"
-      - "Hanthat" / "Hant" -> "hotmail"
-      - "A toute" / "Toute" -> "Atout" (Nom de famille)
-      - Si conflit Genre/Nom, priorité au bon sens.
-
+      Règles d'extraction :
+      1. Sépare bien 'Nom' et 'Prénom'. Si ambigu, le premier mot est souvent le Prénom.
+      2. 'Ville' -> Cherche une ville marocaine (ex: Casablanca, Rabat).
+      3. 'CINE' -> Cherche un code alphanumérique (Lettres + Chiffres, ex: AB1234).
+      4. 'Telephone' -> Cherche une suite de 10 chiffres (06...).
+      5. Correction phonétique : "Sète" = 7, "Hant" = hotmail, etc.
+      
       Format de sortie attendu (JSON uniquement) :
       {
         "first_name": "string",
@@ -70,7 +70,10 @@ export async function extractPatientInfo(text: string): Promise<{ success: boole
         "birth_date": "YYYY-MM-DD",
         "gender": "M" | "F",
         "email": "string",
-        "phone": "string"
+        "phone": "string",
+        "cine": "string",
+        "address": "string",
+        "city": "string"
       }`
                 },
                 {

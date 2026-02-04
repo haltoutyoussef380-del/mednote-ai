@@ -28,6 +28,13 @@ export async function createPatient(formData: FormData) {
         phone: (formData.get('phone') as string) || null,
         email: (formData.get('email') as string) || null,
         user_id: user.id,
+        // Enriched Fields
+        cine: (formData.get('cine') as string) || null,
+        address: (formData.get('address') as string) || null,
+        city: (formData.get('city') as string) || null,
+        // zip_code removed as per user request
+        insurance_provider: (formData.get('insurance_provider') as string) || null,
+        insurance_id: (formData.get('insurance_id') as string) || null,
     }
 
     // Check if profile exists (debugging step)

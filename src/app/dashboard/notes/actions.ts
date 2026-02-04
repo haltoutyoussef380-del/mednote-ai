@@ -9,6 +9,60 @@ export async function structureNoteWithAI(rawText: string) {
     return await generateMedicalSummary(rawText)
 }
 
+/**
+ * STRUCTURE SOIN INFIRMIER VIA AI (Magic Dictée)
+ */
+export async function structureNurseCareWithAI(rawText: string) {
+    if (!rawText) return null
+
+    try {
+        const { default: Groq } = await import('groq-sdk')
+        const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
+
+        const completion = await groq.chat.completions.create({
+            messages: [
+                {
+                    role: "system",
+                    content: `Tu es une IA experte en structuration de soins infirmiers.
+                    Transforme la dictée vocale en objet JSON strict pour le formulaire.
+                    
+                    SCHEMA JSON ATTENDU:
+                    {
+                        "constantes": {
+                            "tension": "string (ex: 12/8) ou vide",
+                            "pouls": "string (ex: 72) ou vide",
+                            "temperature": "string (ex: 37.5) ou vide",
+                            "saturation": "string (ex: 98) ou vide",
+                            "poids": "string (ex: 70) ou vide"
+                        },
+                        "traitement": {
+                            "distribution": boolean (true si "traitement donné/pris"),
+                            "refus": boolean (true si "refus de soin/traitement"),
+                            "si_besoin": "string (ex: doliprane donné) ou vide"
+                        },
+                        "observation": "string (résumé de l'observation) ou vide",
+                        "incident": boolean (true si mention d'agitation, violence, fugue...)
+                    }
+                    
+                    RÉPOND UNIQUEMENT LE JSON.`
+                },
+                {
+                    role: "user",
+                    content: rawText
+                }
+            ],
+            model: "llama-3.3-70b-versatile",
+            temperature: 0,
+            response_format: { type: "json_object" }
+        })
+
+        return JSON.parse(completion.choices[0].message.content || "{}")
+    } catch (error) {
+        console.error("AI Structure Error:", error)
+        return null
+    }
+}
+
 export async function createNote(formData: FormData) {
     const supabase = await createClient()
 

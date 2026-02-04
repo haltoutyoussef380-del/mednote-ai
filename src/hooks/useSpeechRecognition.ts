@@ -25,7 +25,6 @@ export function useSpeechRecognition() {
             recognitionRef.current.onerror = (event: any) => {
                 // Ignore 'no-speech' error (silence) as it's normal in continuous mode
                 if (event.error === 'no-speech') {
-                    // console.warn('Silence detected (no-speech), restarting soon via onend...');
                     return;
                 }
                 // Ignore 'aborted' error (often happens when manually stopping or re-starting)
@@ -34,10 +33,10 @@ export function useSpeechRecognition() {
                 }
 
                 console.error('Speech recognition error', event.error);
-                // For other errors (not-allowed, etc), we might want to stop
-                // if (event.error !== 'aborted') {
-                //     setIsListening(false); // Let onend handle logic
-                // }
+                if (event.error === 'not-allowed') {
+                    setIsListening(false);
+                    shouldKeepListeningRef.current = false;
+                }
             };
 
             recognitionRef.current.onend = () => {
@@ -45,7 +44,6 @@ export function useSpeechRecognition() {
                     // Auto-restart if it was supposed to be listening
                     try {
                         recognitionRef.current.start();
-                        // console.log('Auto-restarting speech recognition...');
                     } catch (e) {
                         console.error("Failed to restart recognition", e);
                         setIsListening(false);
@@ -56,6 +54,14 @@ export function useSpeechRecognition() {
                 }
             };
         }
+
+        return () => {
+            // cleanup on unmount or re-render
+            if (recognitionRef.current) {
+                recognitionRef.current.stop(); // stop capturing
+                recognitionRef.current = null;
+            }
+        };
     }, []);
 
     const startListening = useCallback(() => {
