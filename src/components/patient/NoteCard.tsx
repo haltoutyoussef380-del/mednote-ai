@@ -47,6 +47,16 @@ export function NoteCard({ note }: NoteCardProps) {
                             {formatDate(note.created_at)}
                         </span>
                     </div>
+                    {/* Print Button */}
+                    <a
+                        href={`/print/prescription/${note.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-gray-400 hover:text-indigo-600 transition-colors p-1 rounded-full hover:bg-gray-100"
+                        title="Imprimer Ordonnance / PDF"
+                    >
+                        <FileText className="w-4 h-4" />
+                    </a>
                 </div>
 
                 {/* Content */}
