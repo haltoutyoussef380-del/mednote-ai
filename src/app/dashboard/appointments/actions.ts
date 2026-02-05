@@ -35,7 +35,8 @@ export async function createAppointment(formData: FormData) {
     if (error) {
         console.error("Error creating appointment:", error)
         // In a real app, we would return the error, but for now we'll just log
-        return { error: error.message }
+        // return { error: error.message }
+        throw new Error(error.message)
     }
 
     revalidatePath('/dashboard/appointments')
