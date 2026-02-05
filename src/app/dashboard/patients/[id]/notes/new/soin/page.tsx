@@ -2,9 +2,13 @@
 
 import { useState, use, useEffect } from 'react'
 import { createNote, structureNurseCareWithAI } from '@/app/dashboard/notes/actions'
-import { Save, Activity, Pill, Eye, ArrowLeft, Mic, Sparkles, Loader2 } from 'lucide-react'
+import { transcribeAudio } from '@/app/actions/audio'
+import { Save, Activity, Pill, Eye, ArrowLeft, Mic, Sparkles, Loader2, StopCircle } from 'lucide-react'
 import Link from 'next/link'
-import { useSpeechRecognition } from '@/hooks/useSpeechRecognition'
+import { useAudioRecorder } from '@/hooks/useAudioRecorder'
+
+// Check for browser support
+const hasMediaRecorder = typeof window !== 'undefined' && !!window.MediaRecorder;
 
 interface SoinData {
     constantes: {
@@ -36,22 +40,43 @@ export default function NewNursingCarePage({ params }: { params: Promise<{ id: s
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [isAiProcessing, setIsAiProcessing] = useState(false)
 
-    // Voice & AI
-    const { isListening, transcript, startListening, stopListening, resetTranscript, hasSupport } = useSpeechRecognition()
-    const [showTranscript, setShowTranscript] = useState(false)
+    // Voice & AI (Whisper)
+    const { isRecording, startRecording, stopRecording, audioBlob, resetRecording } = useAudioRecorder()
+    const [transcript, setTranscript] = useState("")
 
-    const handleMagicFill = async () => {
-        if (!transcript.trim()) return
-        stopListening()
+    // Effect: Trigger transcription when audioBlob is ready
+    useEffect(() => {
+        if (audioBlob) {
+            handleTranscribe()
+        }
+    }, [audioBlob])
+
+    const handleTranscribe = async () => {
+        if (!audioBlob) return
         setIsAiProcessing(true)
 
         try {
-            console.log("Analyzing transcript:", transcript)
-            const result = await structureNurseCareWithAI(transcript)
+            // 1. Convert Blob to File
+            const file = new File([audioBlob], "dictation.webm", { type: 'audio/webm' })
+            const formData = new FormData()
+            formData.append('file', file)
+
+            // 2. Send to Groq Whisper
+            console.log("Sending audio to Whisper...")
+            const { text, error } = await transcribeAudio(formData)
+
+            if (error) throw new Error(error)
+            if (!text) throw new Error("No transcription received")
+
+            console.log("Whisper Text:", text)
+            setTranscript(text)
+
+            // 3. Structure with Llama 3
+            console.log("Structuring with AI...")
+            const result = await structureNurseCareWithAI(text)
             console.log("AI Result:", result)
 
             if (result) {
-                // Merge intelligently
                 setData(prev => ({
                     ...prev,
                     constantes: { ...prev.constantes, ...result.constantes },
@@ -59,12 +84,13 @@ export default function NewNursingCarePage({ params }: { params: Promise<{ id: s
                     observation: result.observation || prev.observation,
                     incident: result.incident || prev.incident
                 }))
-                setShowTranscript(false)
-                resetTranscript()
             }
+            // Cleanup
+            resetRecording()
+
         } catch (e) {
             console.error("Magic Fill Error:", e)
-            alert("Erreur lors de l'analyse IA")
+            alert("Erreur lors de l'analyse vocale. Veuillez réessayer.")
         } finally {
             setIsAiProcessing(false)
         }
@@ -93,44 +119,49 @@ export default function NewNursingCarePage({ params }: { params: Promise<{ id: s
                     </h1>
                 </div>
 
-                {/* MAGIC DICTATION BUTTONS */}
-                {hasSupport && (
+                {/* MAGIC DICTATION BUTTONS (WHISPER) */}
+                {hasMediaRecorder && (
                     <div className="flex gap-2">
-                        {!isListening ? (
-                            <button
-                                onClick={() => { setShowTranscript(true); startListening(); }}
-                                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 shadow-md transition-all active:scale-95"
-                            >
-                                <Mic className="w-4 h-4" />
-                                <span>Magic Dictée</span>
-                            </button>
+                        {isAiProcessing ? (
+                            <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-500 rounded-full animate-pulse">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span>Analyse IA en cours...</span>
+                            </div>
                         ) : (
-                            <button
-                                onClick={handleMagicFill}
-                                disabled={isAiProcessing}
-                                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 animate-pulse-slow shadow-lg"
-                            >
-                                {isAiProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                                <span>Terminer & Remplir</span>
-                            </button>
+                            !isRecording ? (
+                                <button
+                                    onClick={startRecording}
+                                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700 shadow-md transition-all active:scale-95"
+                                >
+                                    <Mic className="w-4 h-4" />
+                                    <span>Magic Dictée (HD)</span>
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={stopRecording}
+                                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-full hover:bg-red-700 animate-pulse shadow-lg"
+                                >
+                                    <StopCircle className="w-4 h-4" />
+                                    <span>Terminer & Analyser</span>
+                                </button>
+                            )
                         )}
                     </div>
                 )}
             </div>
 
-            {/* TRANSCRIPT PREVIEW */}
-            {showTranscript && (
-                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mb-6 animate-in fade-in slide-in-from-top-2">
-                    <div className="flex justify-between items-center mb-2">
-                        <span className="text-xs font-bold text-indigo-800 uppercase flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                            En écoute...
-                        </span>
-                        <button onClick={() => { stopListening(); setShowTranscript(false); }} className="text-xs text-gray-500 hover:text-gray-700 underline">Annuler</button>
-                    </div>
-                    <p className="text-indigo-900 text-lg font-medium leading-relaxed min-h-[60px]">
-                        {transcript || "Parlez maintenant (ex: 'Tension 12 8, température 37 5, patient calme...')"}
+            {/* TRANSCRIPT PREVIEW (Optional) */}
+            {transcript && (
+                <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mb-6 animate-in fade-in slide-in-from-top-2 relative group">
+                    <p className="text-indigo-900 text-sm font-medium leading-relaxed italic">
+                        "{transcript}"
                     </p>
+                    <button
+                        onClick={() => setTranscript("")}
+                        className="absolute top-2 right-2 text-indigo-400 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                    >
+                        Masquer
+                    </button>
                 </div>
             )}
 
