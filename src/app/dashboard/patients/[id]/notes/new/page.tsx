@@ -152,9 +152,13 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                     if (parts.length === 1) {
                         setData(prev => ({ ...prev, [activeField]: '' }));
                     } else if (parts.length === 2) {
+                        const [parent, child] = parts;
                         setData(prev => ({
                             ...prev,
-                            [parts[0]]: { ...prev[parts[0] as keyof typeof prev], [parts[1]]: '' }
+                            [parent]: {
+                                ...(prev[parent as keyof typeof prev] as any),
+                                [child]: ''
+                            }
                         }));
                     }
                     setCommandFeedback('✅ Champ vidé');
