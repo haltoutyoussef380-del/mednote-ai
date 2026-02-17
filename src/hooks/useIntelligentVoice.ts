@@ -73,9 +73,14 @@ export function useIntelligentVoice() {
             };
 
             recognitionRef.current.onerror = (event: any) => {
-                console.error("Speech recognition error:", event.error);
+                // Handle normal events silently (no console error)
+                if (event.error === 'no-speech' || event.error === 'aborted') {
+                    console.log("ℹ️ Reconnaissance vocale interrompue (normal)");
+                    setIsProcessing(false);
+                    return;
+                }
 
-                // Handle network errors with auto-retry
+                // Handle network errors with auto-retry (no error log, just warning)
                 if (event.error === 'network') {
                     console.warn("⚠️ Erreur réseau - Nouvelle tentative dans 2 secondes...");
                     setIsProcessing(false);
@@ -91,17 +96,13 @@ export function useIntelligentVoice() {
                             }
                         }
                     }, 2000);
-                } else {
-                    setIsProcessing(false);
-                    // For other errors, stop listening
-                    if (event.error === 'no-speech' || event.error === 'aborted') {
-                        // These are normal, just continue
-                        console.log("ℹ️ Pas de parole détectée, continue d'écouter...");
-                    } else {
-                        console.error("❌ Erreur critique:", event.error);
-                        setIsListening(false);
-                    }
+                    return;
                 }
+
+                // Only log actual critical errors
+                console.error("❌ Erreur critique:", event.error);
+                setIsProcessing(false);
+                setIsListening(false);
             };
 
             recognitionRef.current.onend = () => {
