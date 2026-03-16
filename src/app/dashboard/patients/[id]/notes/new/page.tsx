@@ -2,11 +2,12 @@
 
 import { use, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mic, Loader2, Save, Sparkles, FileText, Users, User, BookOpen, Stethoscope, Brain, ClipboardCheck, Activity, Heart } from 'lucide-react'
+import { Mic, Loader2, Save, Sparkles, FileText, Users, User, BookOpen, Stethoscope, Brain, ClipboardCheck, Activity, Heart, ChevronDown, ChevronUp, Code } from 'lucide-react'
 import { DictationArea } from '@/components/audio/DictationArea'
 import { createNote } from '@/app/dashboard/notes/actions'
 import { useIntelligentVoice } from '@/hooks/useIntelligentVoice'
-import { detectVoiceCommand, detectDropdownSelection, routeAntecedentsText } from '@/app/actions/ai-voice'
+import { detectVoiceCommand, detectDropdownSelection, routeAntecedentsText, getNavigationPrompt } from '@/app/actions/ai-voice'
+import { scrapePsychiatricMedicines } from '@/app/actions/pharma'
 
 const ANTECEDENT_TYPES = [
     "Psychiatriques",
@@ -34,6 +35,7 @@ interface ObservationData {
     conclusion: string;
     diagnostic: string;
     suivi: string;
+    ordonnance: string;
 }
 
 const INITIAL_DATA: ObservationData = {
@@ -50,7 +52,8 @@ const INITIAL_DATA: ObservationData = {
     },
     conclusion: "",
     diagnostic: "",
-    suivi: ""
+    suivi: "",
+    ordonnance: ""
 }
 
 export default function NewObservationPage({ params }: { params: Promise<{ id: string }> }) {
@@ -62,6 +65,8 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
     const [hasMounted, setHasMounted] = useState(false);
     const [activeField, setActiveField] = useState<string>('motif');
     const [commandFeedback, setCommandFeedback] = useState<string>('');
+    const [navPrompt, setNavPrompt] = useState<string>('');
+    const [showPrompt, setShowPrompt] = useState(false);
 
     // Intelligent Voice System
     const {
@@ -76,6 +81,8 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
 
     useEffect(() => {
         setHasMounted(true);
+        // Charger le prompt de navigation
+        getNavigationPrompt().then(setNavPrompt);
     }, []);
 
     // Voice Command Handler
@@ -285,7 +292,8 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                 examen: data.examen,
                 conclusion: data.conclusion,
                 diagnostic: data.diagnostic,
-                suivi: data.suivi
+                suivi: data.suivi,
+                ordonnance: data.ordonnance
             }));
 
             await createNote(formData);
@@ -367,6 +375,24 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                             </div>
                         </div>
                     )}
+
+                    {/* Navigation Prompt Toggle */}
+                    <div className="mt-6 border-t border-white/20 pt-6">
+                        <button
+                            onClick={() => setShowPrompt(!showPrompt)}
+                            className="flex items-center gap-2 text-indigo-100 hover:text-white transition-colors text-sm font-medium bg-white/10 px-4 py-2 rounded-lg backdrop-blur-sm"
+                        >
+                            <Code className="w-4 h-4" />
+                            {showPrompt ? "Masquer le Prompt Système" : "Voir le Prompt Système de Navigation"}
+                            {showPrompt ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </button>
+
+                        {showPrompt && (
+                            <div className="mt-4 p-4 bg-black/30 rounded-xl backdrop-blur-md border border-white/10 font-mono text-xs text-indigo-200 overflow-x-auto whitespace-pre-wrap">
+                                {navPrompt}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Form Sections */}
@@ -650,6 +676,85 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                             rows={4}
                         />
                     </div>
+
+                    {/* 9. Ordonnance */}
+                    <div id="ordonnance" className="bg-white rounded-3xl shadow-xl p-8 border-l-8 border-orange-500 hover:shadow-2xl transition-all duration-300">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-3 bg-orange-100 rounded-xl">
+                                <Stethoscope className="w-6 h-6 text-orange-600" />
+                            </div>
+                            <div className="flex-1 flex justify-between items-center">
+                                <h2 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-orange-800 bg-clip-text text-transparent">
+                                    Ordonnance (Dictée Magique)
+                                </h2>
+                                <button
+                                    onClick={async () => {
+                                        setCommandFeedback("⏳ Scraping medicament.ma en cours...");
+                                        const res = await scrapePsychiatricMedicines();
+                                        setCommandFeedback(`✅ ${res.count} médicaments récupérés !`);
+                                        setTimeout(() => setCommandFeedback(''), 5000);
+                                    }}
+                                    className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1 rounded-full transition-colors font-medium border border-slate-200"
+                                >
+                                    Actualiser la base Pharma
+                                </button>
+                            </div>
+                        </div>
+                        <DictationArea
+                            value={data.ordonnance}
+                            onChange={(v) => setData(prev => ({ ...prev, ordonnance: v }))}
+                            onFocus={() => setActiveField('ordonnance')}
+                            className={getFieldClasses('ordonnance')}
+                            placeholder="Dictez la prescription : 'Je prescris Doliprane 1000mg...'"
+                            rows={6}
+                        />
+                    </div>
+
+                    {/* Final Visualization / Prescription Card */}
+                    {data.ordonnance && (
+                        <div className="mt-12 bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div className="bg-slate-50 border-b border-slate-100 p-6 flex justify-between items-center">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-orange-500 rounded-lg">
+                                        <FileText className="w-5 h-5 text-white" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-slate-800">Récapitulatif de l'Ordonnance</h3>
+                                </div>
+                                <span className="text-xs font-bold text-orange-600 uppercase tracking-widest bg-orange-50 px-3 py-1 rounded-full border border-orange-100 italic">
+                                    Généré par Dictée Magique
+                                </span>
+                            </div>
+                            <div className="p-8 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]">
+                                <div className="max-w-2xl mx-auto bg-white p-10 shadow-sm border border-slate-100 min-h-[300px] relative">
+                                    {/* Medical Cross Decor */}
+                                    <div className="absolute top-4 right-4 opacity-10">
+                                        <Heart className="w-20 h-20 text-orange-600" />
+                                    </div>
+                                    
+                                    <div className="border-b-2 border-slate-800 pb-4 mb-8">
+                                        <p className="font-bold text-slate-900">Dr. {use(params).id ? 'Médecin Psychiatre' : 'Consultant'}</p>
+                                        <p className="text-sm text-slate-500 italic">GST Psychiatrie - MédNote AI</p>
+                                    </div>
+
+                                    <div className="space-y-6">
+                                        <p className="text-sm font-medium text-slate-400 mb-2 uppercase tracking-tighter">Prescription :</p>
+                                        <div className="whitespace-pre-wrap font-serif text-xl italic text-slate-800 leading-relaxed pl-4 border-l-4 border-orange-200">
+                                            {data.ordonnance}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="mt-20 flex justify-end">
+                                        <div className="text-center">
+                                            <div className="w-32 h-16 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center text-[10px] text-slate-300 uppercase mb-1">
+                                                Signature & Cachet
+                                            </div>
+                                            <p className="text-[10px] text-slate-400">Date: {new Date().toLocaleDateString('fr-FR')}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

@@ -161,6 +161,35 @@ RÉPONDS UNIQUEMENT LE JSON.`
     }
 }
 
+export const NAVIGATION_PROMPT = `Tu es un assistant médical intelligent pour un formulaire d'observation psychiatrique.
+
+Le formulaire a ces champs :
+10. suivi - Suivi médical
+11. ordonnance - Prescription médicamenteuse (Médicament, Dosage, Fréquence)
+    
+Analyse la dictée et détermine :
+1. Dans quel champ mettre le texte
+2. Si c'est une sélection de dropdown (antecedents.type)
+3. Le texte corrigé (espaces, ponctuation)
+
+Règles pour ordonnance :
+- Si le médecin dit "Prescription", "Ordonnance", "Je prescris", "Prendre", ou mentionne des médicaments (ex: Haldol, Risperdal), utilise le champ "ordonnance".
+- Formate l'ordonnance de manière propre : "Nom du médicament - Dosage - Fréquence".
+
+Réponds UNIQUEMENT en JSON valide :
+{
+  "field": "nom_du_champ",
+  "value": "texte corrigé",
+  "dropdownSelection": "option" (optionnel)
+}`;
+
+/**
+ * Récupère le prompt de navigation pour l'affichage
+ */
+export async function getNavigationPrompt() {
+    return NAVIGATION_PROMPT;
+}
+
 /**
  * Route intelligemment le texte dicté vers le bon champ
  */
@@ -178,31 +207,7 @@ export async function routeTranscriptToField(
             messages: [
                 {
                     role: "system",
-                    content: `Tu es un assistant médical intelligent pour un formulaire d'observation psychiatrique.
-
-Le formulaire a ces champs :
-1. motif - Motif de consultation
-2. antecedents.type - Type (Psychiatriques, Médicaux & Chirurgicaux, Addictives, Juridiques)
-3. antecedents.details - Détails antécédents personnels
-4. antecedents.familiaux - Antécédents familiaux
-5. biographie - Histoire de vie
-6. histoire - Histoire de la maladie
-7. examen.* - Examen psychiatrique (presentation, langage, perception, affect, comportement, instinct, jugement, cognition, physique)
-8. conclusion - Synthèse clinique
-9. diagnostic - Diagnostic principal
-10. suivi - Suivi médical
-
-Analyse la dictée et détermine :
-1. Dans quel champ mettre le texte
-2. Si c'est une sélection de dropdown (antecedents.type)
-3. Le texte corrigé (espaces, ponctuation)
-
-Réponds UNIQUEMENT en JSON valide :
-{
-  "field": "nom_du_champ",
-  "value": "texte corrigé",
-  "dropdownSelection": "option" (optionnel)
-}`
+                    content: NAVIGATION_PROMPT
                 },
                 {
                     role: "user",
@@ -292,7 +297,9 @@ export async function detectVoiceCommand(transcript: string): Promise<{
             'examen': 'examen',
             'conclusion': 'conclusion',
             'diagnostic': 'diagnostic',
-            'suivi': 'suivi'
+            'suivi': 'suivi',
+            'ordonnance': 'ordonnance',
+            'prescription': 'ordonnance'
         };
 
         for (const [keyword, target] of Object.entries(navMap)) {
