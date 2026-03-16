@@ -129,7 +129,7 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
 
             // STEP 1: Detect command type
             const command = await detectVoiceCommand(correctedText);
-            console.log("📍 Command:", command.type, command.target || command.value);
+            console.log("📍 Command:", command.type, (command as unknown as Record<string, string | undefined>).target || (command as unknown as Record<string, string | undefined>).value);
 
             // STEP 2: Handle based on command type
             if (command.type === 'navigation') {
@@ -199,7 +199,7 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                         setData(prev => ({
                             ...prev,
                             [parent]: {
-                                ...(prev[parent as keyof typeof prev] as any),
+                                ...(prev[parent as keyof ObservationData] as Record<string, string>),
                                 [child]: ''
                             }
                         }));
@@ -278,8 +278,8 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
             const routingResult = await routeTranscriptToField(correctedText, data);
             console.log("🧠 Global Routing:", routingResult);
 
-            if (routingResult.field === 'prescriptions' && (routingResult as any).prescription) {
-                const p = (routingResult as any).prescription;
+            if (routingResult.field === 'prescriptions' && (routingResult as unknown as Record<string, unknown>).prescription) {
+                const p = (routingResult as unknown as Record<string, unknown>).prescription as Prescription;
                 const newPresc: Prescription = {
                     id: Math.random().toString(36).substr(2, 9),
                     nom: p.nom || "",
@@ -308,7 +308,7 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                 }));
             } else if (parts.length === 2) {
                 setData(prev => {
-                    const parent = (prev as any)[parts[0]];
+                    const parent = (prev as unknown as Record<string, Record<string, string>>)[parts[0]];
                     const currentValue = parent[parts[1]] || '';
                     return {
                         ...prev,
@@ -322,7 +322,7 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
 
             setTimeout(() => clearTranscript(), 500);
         });
-    }, [activeField]);
+    }, [activeField, clearTranscript, data, setOnTranscript]);
 
     // Helper function for field classes with visual indicator
     const getFieldClasses = (fieldName: string) => {
@@ -766,7 +766,7 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                                     <Stethoscope className="w-8 h-8 text-slate-300" />
                                 </div>
                                 <p className="text-slate-400 font-medium">Aucun médicament ajouté</p>
-                                <p className="text-xs text-slate-300">Dites "Prescrire Haldol" ou utilisez le bouton +</p>
+                                <p className="text-xs text-slate-300">Dites &quot;Prescrire Haldol&quot; ou utilisez le bouton +</p>
                             </div>
                         ) : (
                             <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-indigo-200 scrollbar-track-transparent">
@@ -856,10 +856,10 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                         </div>
                         <DictationArea
                             value={data.ordonnance}
-                            onChange={(v) => setData(prev => ({ ...prev, ordonnance: v }))}
+                            onChange={(v: string) => setData(prev => ({ ...prev, ordonnance: v }))}
                             onFocus={() => setActiveField('ordonnance')}
                             className={getFieldClasses('ordonnance')}
-                            placeholder="Dictez la prescription : 'Je prescris Doliprane 1000mg...'"
+                            placeholder={'Dictez la prescription : "Je prescris Doliprane 1000mg..."'}
                             rows={6}
                         />
                     </div>
@@ -872,7 +872,7 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                                     <div className="p-2 bg-orange-500 rounded-lg">
                                         <FileText className="w-5 h-5 text-white" />
                                     </div>
-                                    <h3 className="text-xl font-bold text-slate-800">Récapitulatif de l'Ordonnance</h3>
+                                    <h3 className="text-xl font-bold text-slate-800">Récapitulatif de l&apos;Ordonnance</h3>
                                 </div>
                                 <div className="flex flex-col items-end">
                                     <span className="text-xs font-bold text-orange-600 uppercase tracking-widest bg-orange-50 px-3 py-1 rounded-full border border-orange-100 italic">
@@ -888,7 +888,7 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                                     </div>
                                     
                                     <div className="border-b-2 border-slate-800 pb-4 mb-8">
-                                        <p className="font-bold text-slate-900 uppercase">Dr. {id ? 'Psychiatre de Garde' : 'Consultant'}</p>
+                                        <p className="font-bold text-slate-900 uppercase">Dr. {id ? "Psychiatre de Garde" : "Consultant"}</p>
                                         <p className="text-xs text-slate-500 italic">Rabat - Maroc | MédNote AI</p>
                                     </div>
 

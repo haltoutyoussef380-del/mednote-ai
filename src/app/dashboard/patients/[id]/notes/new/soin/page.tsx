@@ -154,7 +154,7 @@ export default function NewNursingCarePage({ params }: { params: Promise<{ id: s
             {transcript && (
                 <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 mb-6 animate-in fade-in slide-in-from-top-2 relative group">
                     <p className="text-indigo-900 text-sm font-medium leading-relaxed italic">
-                        "{transcript}"
+                        &quot;{transcript}&quot;
                     </p>
                     <button
                         onClick={() => setTranscript("")}

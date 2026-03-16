@@ -8,18 +8,11 @@ export function useVoicePilot() {
     const [isContinuousMode, setIsContinuousMode] = useState(false);
 
     // Forward declaration for onSilence
-    const handleSilence = async () => {
-        // If silence is detected, we stop recording -> this triggers the useEffect below
-        // which calls processCommand. 
-        // BUT, we need to know we should restart afterwards.
-        stopRecording();
-    };
-
     const { isRecording, startRecording: startMic, stopRecording, audioBlob, resetRecording } = useAudioRecorder();
 
     // Real-time Visual Feedback (Browser API)
     const [liveTranscript, setLiveTranscript] = useState("");
-    const recognitionRef = useRef<any>(null);
+    const recognitionRef = useRef<Record<string, any> | null>(null);
     const currentTranscriptRef = useRef<string>(""); // Current session transcript
     const accumulatedTextRef = useRef<string>(""); // Accumulated across sessions
     const onCommandDetectedRef = useRef<((command: string) => void) | null>(null);
@@ -28,11 +21,12 @@ export function useVoicePilot() {
         if (typeof window !== 'undefined' && (window as any).webkitSpeechRecognition) {
             const SpeechRecognition = (window as any).webkitSpeechRecognition;
             recognitionRef.current = new SpeechRecognition();
-            recognitionRef.current.continuous = true;
-            recognitionRef.current.interimResults = true;
-            recognitionRef.current.lang = 'fr-FR';
+            const recognition = recognitionRef.current as Record<string, any>;
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'fr-FR';
 
-            recognitionRef.current.onresult = (event: any) => {
+            recognition.onresult = (event: any) => {
                 let interimTranscript = '';
                 let finalTranscript = '';
 
@@ -83,17 +77,18 @@ export function useVoicePilot() {
                 }
             };
 
-            // When speech recognition ends naturally (pause detected)
-            recognitionRef.current.onend = () => {
-                // Save the current session transcript to accumulated text
-                if (currentTranscriptRef.current.trim()) {
-                    const newAccumulated = accumulatedTextRef.current
-                        ? `${accumulatedTextRef.current} ${currentTranscriptRef.current.trim()}`
-                        : currentTranscriptRef.current.trim();
-                    accumulatedTextRef.current = newAccumulated;
-                    currentTranscriptRef.current = ""; // Reset current session
-                }
-            };
+            if (recognition) {
+                recognition.onend = () => {
+                    // Save the current session transcript to accumulated text
+                    if (currentTranscriptRef.current.trim()) {
+                        const newAccumulated = accumulatedTextRef.current
+                            ? `${accumulatedTextRef.current} ${currentTranscriptRef.current.trim()}`
+                            : currentTranscriptRef.current.trim();
+                        accumulatedTextRef.current = newAccumulated;
+                        currentTranscriptRef.current = ""; // Reset current session
+                    }
+                };
+            }
         }
     }, []);
 
