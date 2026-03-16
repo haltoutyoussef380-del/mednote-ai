@@ -2,12 +2,20 @@
 
 import { use, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mic, Loader2, Save, Sparkles, FileText, Users, User, BookOpen, Stethoscope, Brain, ClipboardCheck, Activity, Heart, ChevronDown, ChevronUp, Code } from 'lucide-react'
+import { Mic, Loader2, Save, Sparkles, FileText, Users, User, BookOpen, Stethoscope, Brain, ClipboardCheck, Activity, Heart, ChevronDown, ChevronUp, Code, Plus, Trash2 } from 'lucide-react'
 import { DictationArea } from '@/components/audio/DictationArea'
 import { createNote } from '@/app/dashboard/notes/actions'
 import { useIntelligentVoice } from '@/hooks/useIntelligentVoice'
-import { detectVoiceCommand, detectDropdownSelection, routeAntecedentsText, getNavigationPrompt } from '@/app/actions/ai-voice'
+import { detectVoiceCommand, detectDropdownSelection, routeAntecedentsText, getNavigationPrompt, routeTranscriptToField } from '@/app/actions/ai-voice'
 import { scrapePsychiatricMedicines } from '@/app/actions/pharma'
+
+interface Prescription {
+    id: string;
+    nom: string;
+    dosage: string;
+    frequence: string;
+    duree: string;
+}
 
 const ANTECEDENT_TYPES = [
     "Psychiatriques",
@@ -36,6 +44,7 @@ interface ObservationData {
     diagnostic: string;
     suivi: string;
     ordonnance: string;
+    prescriptions: Prescription[];
 }
 
 const INITIAL_DATA: ObservationData = {
@@ -53,7 +62,8 @@ const INITIAL_DATA: ObservationData = {
     conclusion: "",
     diagnostic: "",
     suivi: "",
-    ordonnance: ""
+    ordonnance: "",
+    prescriptions: []
 }
 
 export default function NewObservationPage({ params }: { params: Promise<{ id: string }> }) {
@@ -67,6 +77,32 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
     const [commandFeedback, setCommandFeedback] = useState<string>('');
     const [navPrompt, setNavPrompt] = useState<string>('');
     const [showPrompt, setShowPrompt] = useState(false);
+
+    // Prescription Management
+    const addPrescription = (name: string = "") => {
+        const newPresc: Prescription = {
+            id: Math.random().toString(36).substr(2, 9),
+            nom: name,
+            dosage: "",
+            frequence: "",
+            duree: ""
+        };
+        setData(prev => ({ ...prev, prescriptions: [...prev.prescriptions, newPresc] }));
+    };
+
+    const updatePrescription = (id: string, updates: Partial<Prescription>) => {
+        setData(prev => ({
+            ...prev,
+            prescriptions: prev.prescriptions.map(p => p.id === id ? { ...p, ...updates } : p)
+        }));
+    };
+
+    const removePrescription = (id: string) => {
+        setData(prev => ({
+            ...prev,
+            prescriptions: prev.prescriptions.filter(p => p.id !== id)
+        }));
+    };
 
     // Intelligent Voice System
     const {
@@ -238,6 +274,29 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                 return;
             }
 
+            // STEP 3: Intelligent Routing (New logic for Prescriptions & Fields)
+            const routingResult = await routeTranscriptToField(correctedText, data);
+            console.log("🧠 Global Routing:", routingResult);
+
+            if (routingResult.field === 'prescriptions' && (routingResult as any).prescription) {
+                const p = (routingResult as any).prescription;
+                const newPresc: Prescription = {
+                    id: Math.random().toString(36).substr(2, 9),
+                    nom: p.nom || "",
+                    dosage: p.dosage || "",
+                    frequence: p.frequence || "",
+                    duree: p.duree || ""
+                };
+                setData(prev => ({ ...prev, prescriptions: [...prev.prescriptions, newPresc] }));
+                setCommandFeedback(`💊 Prescription ajoutée: ${p.nom}`);
+                setTimeout(() => setCommandFeedback(''), 3000);
+                
+                // Scroll to the builder
+                document.getElementById('prescription-builder')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                clearTranscript();
+                return;
+            }
+
             const parts = activeField.split('.');
 
             if (parts.length === 1) {
@@ -293,7 +352,8 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                 conclusion: data.conclusion,
                 diagnostic: data.diagnostic,
                 suivi: data.suivi,
-                ordonnance: data.ordonnance
+                ordonnance: data.ordonnance,
+                prescriptions: data.prescriptions
             }));
 
             await createNote(formData);
@@ -677,7 +737,101 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                         />
                     </div>
 
-                    {/* 9. Ordonnance */}
+                    {/* 9. Prescription Builder (Barre Roulante) */}
+                    <div id="prescription-builder" className="bg-white rounded-3xl shadow-xl p-8 border-l-8 border-indigo-500 hover:shadow-2xl transition-all duration-300">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="p-3 bg-indigo-100 rounded-xl">
+                                <Sparkles className="w-6 h-6 text-indigo-600" />
+                            </div>
+                            <div className="flex-1 flex justify-between items-center">
+                                <div>
+                                    <h2 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-indigo-800 bg-clip-text text-transparent">
+                                        Prescription Interactive
+                                    </h2>
+                                    <p className="text-sm text-slate-500">Gérez les médicaments de manière structurée</p>
+                                </div>
+                                <button
+                                    onClick={() => addPrescription()}
+                                    className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl transition-all shadow-lg hover:shadow-indigo-200 font-semibold"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Ajouter
+                                </button>
+                            </div>
+                        </div>
+
+                        {data.prescriptions.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-10 bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200">
+                                <div className="p-4 bg-white rounded-full shadow-sm mb-3">
+                                    <Stethoscope className="w-8 h-8 text-slate-300" />
+                                </div>
+                                <p className="text-slate-400 font-medium">Aucun médicament ajouté</p>
+                                <p className="text-xs text-slate-300">Dites "Prescrire Haldol" ou utilisez le bouton +</p>
+                            </div>
+                        ) : (
+                            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-indigo-200 scrollbar-track-transparent">
+                                {data.prescriptions.map((p) => (
+                                    <div key={p.id} className="min-w-[300px] bg-slate-50 rounded-2xl p-5 border border-slate-200 relative group animate-in zoom-in-95 duration-200 shadow-sm hover:shadow-md transition-all">
+                                        <button
+                                            onClick={() => removePrescription(p.id)}
+                                            className="absolute top-3 right-3 p-1.5 bg-white text-slate-400 hover:text-red-500 rounded-lg shadow-sm opacity-0 group-hover:opacity-100 transition-all border border-slate-100"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                        
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Médicament</label>
+                                                <input
+                                                    type="text"
+                                                    value={p.nom}
+                                                    onChange={(e) => updatePrescription(p.id, { nom: e.target.value })}
+                                                    placeholder="Ex: Haldol"
+                                                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none transition-all shadow-sm"
+                                                />
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Dosage</label>
+                                                    <input
+                                                        type="text"
+                                                        value={p.dosage}
+                                                        onChange={(e) => updatePrescription(p.id, { dosage: e.target.value })}
+                                                        placeholder="Ex: 5mg"
+                                                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-600 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Durée</label>
+                                                    <input
+                                                        type="text"
+                                                        value={p.duree}
+                                                        onChange={(e) => updatePrescription(p.id, { duree: e.target.value })}
+                                                        placeholder="Ex: 10j"
+                                                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-600 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Fréquence / Posologie</label>
+                                                <input
+                                                    type="text"
+                                                    value={p.frequence}
+                                                    onChange={(e) => updatePrescription(p.id, { frequence: e.target.value })}
+                                                    placeholder="Ex: 1-0-1 (Matin/Soir)"
+                                                    className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-600 focus:ring-1 focus:ring-indigo-500 outline-none"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* 10. Ordonnance (Note Verbatim) */}
                     <div id="ordonnance" className="bg-white rounded-3xl shadow-xl p-8 border-l-8 border-orange-500 hover:shadow-2xl transition-all duration-300">
                         <div className="flex items-center gap-3 mb-6">
                             <div className="p-3 bg-orange-100 rounded-xl">
@@ -711,7 +865,7 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                     </div>
 
                     {/* Final Visualization / Prescription Card */}
-                    {data.ordonnance && (
+                    {(data.ordonnance || data.prescriptions.length > 0) && (
                         <div className="mt-12 bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <div className="bg-slate-50 border-b border-slate-100 p-6 flex justify-between items-center">
                                 <div className="flex items-center gap-3">
@@ -720,35 +874,64 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                                     </div>
                                     <h3 className="text-xl font-bold text-slate-800">Récapitulatif de l'Ordonnance</h3>
                                 </div>
-                                <span className="text-xs font-bold text-orange-600 uppercase tracking-widest bg-orange-50 px-3 py-1 rounded-full border border-orange-100 italic">
-                                    Généré par Dictée Magique
-                                </span>
+                                <div className="flex flex-col items-end">
+                                    <span className="text-xs font-bold text-orange-600 uppercase tracking-widest bg-orange-50 px-3 py-1 rounded-full border border-orange-100 italic">
+                                        Généré par Dictée Magique
+                                    </span>
+                                </div>
                             </div>
                             <div className="p-8 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]">
-                                <div className="max-w-2xl mx-auto bg-white p-10 shadow-sm border border-slate-100 min-h-[300px] relative">
+                                <div className="max-w-2xl mx-auto bg-white p-10 shadow-sm border border-slate-100 min-h-[400px] relative">
                                     {/* Medical Cross Decor */}
                                     <div className="absolute top-4 right-4 opacity-10">
                                         <Heart className="w-20 h-20 text-orange-600" />
                                     </div>
                                     
                                     <div className="border-b-2 border-slate-800 pb-4 mb-8">
-                                        <p className="font-bold text-slate-900">Dr. {use(params).id ? 'Médecin Psychiatre' : 'Consultant'}</p>
-                                        <p className="text-sm text-slate-500 italic">GST Psychiatrie - MédNote AI</p>
+                                        <p className="font-bold text-slate-900 uppercase">Dr. {id ? 'Psychiatre de Garde' : 'Consultant'}</p>
+                                        <p className="text-xs text-slate-500 italic">Rabat - Maroc | MédNote AI</p>
                                     </div>
 
-                                    <div className="space-y-6">
-                                        <p className="text-sm font-medium text-slate-400 mb-2 uppercase tracking-tighter">Prescription :</p>
-                                        <div className="whitespace-pre-wrap font-serif text-xl italic text-slate-800 leading-relaxed pl-4 border-l-4 border-orange-200">
-                                            {data.ordonnance}
+                                    <div className="space-y-8">
+                                        <div className="flex justify-between items-end border-b border-slate-100 pb-2">
+                                            <p className="text-sm font-bold text-slate-400 uppercase tracking-tighter">ORDONNANCE</p>
+                                            <p className="text-[10px] text-slate-400 font-mono">ID: {Math.random().toString(36).substr(2, 6).toUpperCase()}</p>
                                         </div>
+
+                                        {/* Structured Prescriptions */}
+                                        {data.prescriptions.length > 0 && (
+                                            <div className="space-y-6">
+                                                {data.prescriptions.map((p, idx) => (
+                                                    <div key={p.id} className="pl-4 border-l-4 border-indigo-500">
+                                                        <p className="font-bold text-xl text-indigo-900">{idx + 1}. {p.nom.toUpperCase()}</p>
+                                                        <div className="flex gap-4 mt-1 text-sm text-slate-600 font-medium italic">
+                                                            {p.dosage && <span>• {p.dosage}</span>}
+                                                            {p.frequence && <span>• {p.frequence}</span>}
+                                                            {p.duree && <span>• Pendant {p.duree}</span>}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Free Text Ordonnance */}
+                                        {data.ordonnance && (
+                                            <div className="whitespace-pre-wrap font-serif text-lg italic text-slate-800 leading-relaxed pl-4 border-l-4 border-orange-200">
+                                                {data.ordonnance}
+                                            </div>
+                                        )}
                                     </div>
                                     
-                                    <div className="mt-20 flex justify-end">
+                                    <div className="mt-32 flex justify-between items-end">
+                                        <div className="text-[10px] text-slate-300">
+                                            <p>Numéro de série: {Date.now()}</p>
+                                            <p>Validité: 3 mois</p>
+                                        </div>
                                         <div className="text-center">
-                                            <div className="w-32 h-16 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center text-[10px] text-slate-300 uppercase mb-1">
-                                                Signature & Cachet
+                                            <div className="w-40 h-20 border-2 border-dashed border-indigo-100 rounded-2xl flex items-center justify-center text-[10px] text-indigo-200 uppercase mb-2 font-bold tracking-widest bg-indigo-50/30">
+                                                Cachet & Signature
                                             </div>
-                                            <p className="text-[10px] text-slate-400">Date: {new Date().toLocaleDateString('fr-FR')}</p>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase">Date: {new Date().toLocaleDateString('fr-FR')}</p>
                                         </div>
                                     </div>
                                 </div>
