@@ -15,9 +15,7 @@ export function useVoicePilot() {
         stopRecording();
     };
 
-    const { isRecording, startRecording: startMic, stopRecording, audioBlob, resetRecording } = useAudioRecorder({
-        onSilence: isContinuousMode ? handleSilence : undefined
-    });
+    const { isRecording, startRecording: startMic, stopRecording, audioBlob, resetRecording } = useAudioRecorder();
 
     // Real-time Visual Feedback (Browser API)
     const [liveTranscript, setLiveTranscript] = useState("");
