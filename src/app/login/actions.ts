@@ -27,7 +27,9 @@ export async function login(formData: FormData) {
 export async function requestPasswordReset(formData: FormData) {
     const supabase = await createClient()
     const email = formData.get('email') as string
-    const origin = (await headers()).get('origin')
+    const host = (await headers()).get('host')
+    const protocol = (await headers()).get('x-forwarded-proto') || 'http'
+    const origin = `${protocol}://${host}`
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${origin}/auth/callback?next=/auth/reset-password`,
