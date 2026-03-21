@@ -75,9 +75,16 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
                                 </div>
 
                                 <div>
-                                    <label htmlFor="password" className="block text-sm font-medium leading-6 text-gray-900">
-                                        Mot de passe
-                                    </label>
+                                    <div className="flex items-center justify-between">
+                                        <label htmlFor="password" className="block text-sm font-medium leading-6 text-gray-900">
+                                            Mot de passe
+                                        </label>
+                                        <div className="text-sm">
+                                            <Link href="/login/forgot-password" title="Mot de passe oublié" className="font-semibold text-primary hover:text-primary/80">
+                                                Mot de passe oublié ?
+                                            </Link>
+                                        </div>
+                                    </div>
                                     <div className="mt-2">
                                         <input
                                             id="password"
