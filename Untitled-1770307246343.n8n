@@ -1,0 +1,71 @@
+{
+  "updatedAt": "2026-02-05T16:00:46.714Z",
+  "createdAt": "2026-02-05T16:00:46.714Z",
+  "id": "L4xyCol5IJMZmKSL",
+  "name": "Untitled-1770307246343",
+  "description": null,
+  "active": false,
+  "isArchived": false,
+  "nodes": [],
+  "connections": {},
+  "settings": {
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "staticData": null,
+  "meta": null,
+  "pinData": null,
+  "versionId": "ee362769-557d-4438-be74-1333da0fe17b",
+  "activeVersionId": null,
+  "versionCounter": 1,
+  "triggerCount": 0,
+  "shared": [
+    {
+      "updatedAt": "2026-02-05T16:00:46.720Z",
+      "createdAt": "2026-02-05T16:00:46.720Z",
+      "role": "workflow:owner",
+      "workflowId": "L4xyCol5IJMZmKSL",
+      "projectId": "MvPCdU6EHGfzYANQ",
+      "project": {
+        "updatedAt": "2026-02-05T15:58:28.463Z",
+        "createdAt": "2026-02-05T15:39:35.375Z",
+        "id": "MvPCdU6EHGfzYANQ",
+        "name": "youssef Haltout <haltout.youssef.380@gmail.com>",
+        "type": "personal",
+        "icon": null,
+        "description": null,
+        "creatorId": "bcf7cef3-264b-4292-b6b7-73120ac3c7ee",
+        "projectRelations": [
+          {
+            "updatedAt": "2026-02-05T15:39:35.378Z",
+            "createdAt": "2026-02-05T15:39:35.378Z",
+            "userId": "bcf7cef3-264b-4292-b6b7-73120ac3c7ee",
+            "projectId": "MvPCdU6EHGfzYANQ",
+            "user": {
+              "updatedAt": "2026-02-05T15:58:35.000Z",
+              "createdAt": "2026-02-05T15:39:29.617Z",
+              "id": "bcf7cef3-264b-4292-b6b7-73120ac3c7ee",
+              "email": "haltout.youssef.380@gmail.com",
+              "firstName": "youssef",
+              "lastName": "Haltout",
+              "personalizationAnswers": {
+                "version": "v4",
+                "personalization_survey_submitted_at": "2026-02-05T15:58:35.645Z",
+                "personalization_survey_n8n_version": "2.6.3"
+              },
+              "settings": {
+                "userActivated": false
+              },
+              "disabled": false,
+              "mfaEnabled": false,
+              "lastActiveAt": "2026-02-05",
+              "isPending": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "tags": [],
+  "activeVersion": null
+}

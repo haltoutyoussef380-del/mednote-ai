@@ -2,12 +2,13 @@
 
 import { use, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mic, Loader2, Save, Sparkles, FileText, Users, User, BookOpen, Stethoscope, Brain, ClipboardCheck, Activity, Heart, ChevronDown, ChevronUp, Code, Plus, Trash2 } from 'lucide-react'
+import { Mic, Loader2, Save, Sparkles, FileText, Users, User, BookOpen, Stethoscope, Brain, ClipboardCheck, Activity, Heart, ChevronDown, ChevronUp, Code, Plus, Trash2, Calendar } from 'lucide-react'
 import { DictationArea } from '@/components/audio/DictationArea'
 import { createNote } from '@/app/dashboard/notes/actions'
 import { useIntelligentVoice } from '@/hooks/useIntelligentVoice'
-import { detectVoiceCommand, detectDropdownSelection, routeAntecedentsText, getNavigationPrompt, routeTranscriptToField } from '@/app/actions/ai-voice'
-import { scrapePsychiatricMedicines } from '@/app/actions/pharma'
+import { correctMedicalText, detectVoiceCommand, routeAntecedentsText, getNavigationPrompt, routeTranscriptToField } from '@/app/actions/ai-voice';
+import { searchMedicaments, scrapePsychiatricMedicines } from '@/app/actions/pharma';
+import { FormContext, VoicePilotAction } from '@/lib/voice-pilot';
 
 interface Prescription {
     id: string;
@@ -44,6 +45,7 @@ interface ObservationData {
     diagnostic: string;
     suivi: string;
     ordonnance: string;
+    prochain_rdv: string;
     prescriptions: Prescription[];
 }
 
@@ -63,6 +65,7 @@ const INITIAL_DATA: ObservationData = {
     diagnostic: "",
     suivi: "",
     ordonnance: "",
+    prochain_rdv: "",
     prescriptions: []
 }
 
@@ -72,11 +75,17 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
 
     const [data, setData] = useState<ObservationData>(INITIAL_DATA);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [hasMounted, setHasMounted] = useState(false);
-    const [activeField, setActiveField] = useState<string>('motif');
-    const [commandFeedback, setCommandFeedback] = useState<string>('');
+    const [hasMounted, setHasMounted] = useState(false);    const [activeField, setActiveField] = useState<string>('motif');
+    const [commandFeedback, setCommandFeedback] = useState<string>("");
+
+    // --- Autocomplete States ---
+    const [medSuggestions, setMedSuggestions] = useState<any[]>([]);
+    const [activeSearchId, setActiveSearchId] = useState<string | null>(null);
+    const [activeSuggestIndex, setActiveSuggestIndex] = useState(-1);
+
     const [navPrompt, setNavPrompt] = useState<string>('');
     const [showPrompt, setShowPrompt] = useState(false);
+
 
     // Prescription Management
     const addPrescription = (name: string = "") => {
@@ -163,10 +172,16 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                         'antecedents': 'antecedents.type',
                         'biographie': 'biographie',
                         'histoire': 'histoire',
-                        'examen': 'examen.presentation',
+                        'examen': 'examen.resume',
+                        'examen.presentation': 'examen.presentation',
+                        'examen.contact': 'examen.contact',
+                        'examen.humeur': 'examen.humeur',
+                        'examen.pensee': 'examen.pensee',
+                        'examen.cognition': 'examen.cognition',
                         'conclusion': 'conclusion',
                         'diagnostic': 'diagnostic',
-                        'suivi': 'suivi'
+                        'suivi': 'suivi',
+                        'prescriptions': 'prescriptions'
                     };
                     setActiveField(fieldMap[command.target!] || command.target!);
                 }
@@ -297,6 +312,13 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                 return;
             }
 
+            // --- NEXT APPOINTMENT DETECTION ---
+            if ((routingResult as any).prochain_rdv) {
+                setData(prev => ({ ...prev, prochain_rdv: (routingResult as any).prochain_rdv }));
+                setCommandFeedback(`📅 RDV détecté: ${(routingResult as any).prochain_rdv}`);
+                setTimeout(() => setCommandFeedback(''), 3000);
+            }
+
             const parts = activeField.split('.');
 
             if (parts.length === 1) {
@@ -352,6 +374,7 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                 conclusion: data.conclusion,
                 diagnostic: data.diagnostic,
                 suivi: data.suivi,
+                prochain_rdv: data.prochain_rdv,
                 ordonnance: data.ordonnance,
                 prescriptions: data.prescriptions
             }));
@@ -735,6 +758,25 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                             placeholder="Plan de suivi..."
                             rows={4}
                         />
+
+                        {/* Champ Prochain RDV Manuel/IA */}
+                        <div className="mt-6 p-4 bg-teal-50 rounded-2xl border-2 border-teal-200">
+                            <label className="flex items-center gap-2 text-sm font-bold text-teal-800 mb-2">
+                                <Calendar className="w-4 h-4" />
+                                Prochain Rendez-vous (Détecté ou Manuel)
+                            </label>
+                            <input
+                                type="text"
+                                value={data.prochain_rdv}
+                                onChange={(e) => setData(prev => ({ ...prev, prochain_rdv: e.target.value }))}
+                                onFocus={() => setActiveField('prochain_rdv')}
+                                className={getFieldClasses('prochain_rdv')}
+                                placeholder='Ex: "dans 15 jours", "le 20 juin"...'
+                            />
+                            <p className="text-[10px] text-teal-600 mt-2 italic">
+                                * Ce champ sera transformé automatiquement en date dans votre agenda.
+                            </p>
+                        </div>
                     </div>
 
                     {/* 9. Prescription Builder (Barre Roulante) */}
@@ -780,15 +822,78 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
                                         </button>
                                         
                                         <div className="space-y-4">
-                                            <div>
+                                            <div className="relative">
                                                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 block">Médicament</label>
                                                 <input
                                                     type="text"
                                                     value={p.nom}
-                                                    onChange={(e) => updatePrescription(p.id, { nom: e.target.value })}
+                                                    onChange={async (e) => {
+                                                        const val = e.target.value;
+                                                        updatePrescription(p.id, { nom: val });
+                                                        
+                                                        if (val.length >= 2) {
+                                                            const results = await searchMedicaments(val);
+                                                            setMedSuggestions(results);
+                                                            setActiveSearchId(p.id);
+                                                            setActiveSuggestIndex(-1);
+                                                        } else {
+                                                            setMedSuggestions([]);
+                                                            setActiveSearchId(null);
+                                                        }
+                                                    }}
+                                                    onKeyDown={(e) => {
+                                                        if (activeSearchId === p.id && medSuggestions.length > 0) {
+                                                            if (e.key === 'ArrowDown') {
+                                                                e.preventDefault();
+                                                                setActiveSuggestIndex(prev => (prev + 1) % medSuggestions.length);
+                                                            } else if (e.key === 'ArrowUp') {
+                                                                e.preventDefault();
+                                                                setActiveSuggestIndex(prev => (prev - 1 + medSuggestions.length) % medSuggestions.length);
+                                                            } else if (e.key === 'Enter' && activeSuggestIndex !== -1) {
+                                                                e.preventDefault();
+                                                                const selected = medSuggestions[activeSuggestIndex];
+                                                                updatePrescription(p.id, { nom: selected.nom });
+                                                                setMedSuggestions([]);
+                                                                setActiveSearchId(null);
+                                                            } else if (e.key === 'Escape') {
+                                                                setMedSuggestions([]);
+                                                                setActiveSearchId(null);
+                                                            }
+                                                        }
+                                                    }}
+                                                    onBlur={() => {
+                                                        // Delay to allow click on suggestion
+                                                        setTimeout(() => {
+                                                            setMedSuggestions([]);
+                                                            setActiveSearchId(null);
+                                                        }, 200);
+                                                    }}
                                                     placeholder="Ex: Haldol"
                                                     className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-indigo-500 outline-none transition-all shadow-sm"
                                                 />
+                                                
+                                                {/* AUTOCOMPLETE DROPDOWN */}
+                                                {activeSearchId === p.id && medSuggestions.length > 0 && (
+                                                    <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+                                                        {medSuggestions.map((s, idx) => (
+                                                            <div
+                                                                key={s.id || idx}
+                                                                onClick={() => {
+                                                                    updatePrescription(p.id, { nom: s.nom });
+                                                                    setMedSuggestions([]);
+                                                                    setActiveSearchId(null);
+                                                                }}
+                                                                onMouseEnter={() => setActiveSuggestIndex(idx)}
+                                                                className={`px-4 py-3 cursor-pointer transition-colors flex flex-col ${
+                                                                    idx === activeSuggestIndex ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'hover:bg-slate-50'
+                                                                }`}
+                                                            >
+                                                                <span className="font-bold text-sm text-slate-900">{s.nom}</span>
+                                                                <span className="text-[10px] text-slate-500 italic">{s.dci || 'Composition non spécifiée'}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
 
                                             <div className="grid grid-cols-2 gap-3">
@@ -866,73 +971,81 @@ export default function NewObservationPage({ params }: { params: Promise<{ id: s
 
                     {/* Final Visualization / Prescription Card */}
                     {(data.ordonnance || data.prescriptions.length > 0) && (
-                        <div className="mt-12 bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <div className="bg-slate-50 border-b border-slate-100 p-6 flex justify-between items-center">
+                        <div className="mt-12 bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-2xl mx-auto">
+                            <div className="bg-slate-50 border-b border-slate-100 p-6 flex justify-between items-center text-slate-800">
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-orange-500 rounded-lg">
+                                    <div className="p-2 bg-indigo-600 rounded-lg">
                                         <FileText className="w-5 h-5 text-white" />
                                     </div>
-                                    <h3 className="text-xl font-bold text-slate-800">Récapitulatif de l&apos;Ordonnance</h3>
+                                    <h3 className="text-xl font-bold">Aperçu de l&apos;Ordonnance A5</h3>
                                 </div>
-                                <div className="flex flex-col items-end">
-                                    <span className="text-xs font-bold text-orange-600 uppercase tracking-widest bg-orange-50 px-3 py-1 rounded-full border border-orange-100 italic">
-                                        Généré par Dictée Magique
-                                    </span>
-                                </div>
+                                <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full border border-indigo-100 italic">
+                                    Format Officiel
+                                </span>
                             </div>
-                            <div className="p-8 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]">
-                                <div className="max-w-2xl mx-auto bg-white p-10 shadow-sm border border-slate-100 min-h-[400px] relative">
-                                    {/* Medical Cross Decor */}
-                                    <div className="absolute top-4 right-4 opacity-10">
-                                        <Heart className="w-20 h-20 text-orange-600" />
-                                    </div>
-                                    
-                                    <div className="border-b-2 border-slate-800 pb-4 mb-8">
-                                        <p className="font-bold text-slate-900 uppercase">Dr. {id ? "Psychiatre de Garde" : "Consultant"}</p>
-                                        <p className="text-xs text-slate-500 italic">Rabat - Maroc | MédNote AI</p>
+                            
+                            <div className="p-4 bg-slate-100 overflow-auto max-h-[700px]">
+                                <div className="bg-white shadow-lg mx-auto w-full min-h-[600px] flex flex-col relative" style={{ width: '100%', maxWidth: '148mm' }}>
+                                    {/* EN-TÊTE IMAGE */}
+                                    <div className="w-full">
+                                        <img 
+                                            src="/ordonnace entete.png" 
+                                            alt="En-tête" 
+                                            className="w-full h-auto object-contain"
+                                        />
                                     </div>
 
-                                    <div className="space-y-8">
-                                        <div className="flex justify-between items-end border-b border-slate-100 pb-2">
-                                            <p className="text-sm font-bold text-slate-400 uppercase tracking-tighter">ORDONNANCE</p>
-                                            <p className="text-[10px] text-slate-400 font-mono">ID: {Math.random().toString(36).substr(2, 6).toUpperCase()}</p>
+                                    {/* CONTENU PRINCIPAL */}
+                                    <div className="px-8 py-6 flex-1 flex flex-col">
+                                        <div className="flex justify-end mb-4">
+                                            <p className="text-[10px] font-medium">Tanger le : <span className="border-b border-dotted border-black px-4">{new Date().toLocaleDateString('fr-FR')}</span></p>
                                         </div>
 
-                                        {/* Structured Prescriptions */}
-                                        {data.prescriptions.length > 0 && (
-                                            <div className="space-y-6">
-                                                {data.prescriptions.map((p, idx) => (
-                                                    <div key={p.id} className="pl-4 border-l-4 border-indigo-500">
-                                                        <p className="font-bold text-xl text-indigo-900">{idx + 1}. {p.nom.toUpperCase()}</p>
-                                                        <div className="flex gap-4 mt-1 text-sm text-slate-600 font-medium italic">
-                                                            {p.dosage && <span>• {p.dosage}</span>}
-                                                            {p.frequence && <span>• {p.frequence}</span>}
-                                                            {p.duree && <span>• Pendant {p.duree}</span>}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
+                                        <h1 className="text-center text-xl font-bold underline mb-6 tracking-widest text-slate-900">
+                                            ORDONNANCE
+                                        </h1>
 
-                                        {/* Free Text Ordonnance */}
-                                        {data.ordonnance && (
-                                            <div className="whitespace-pre-wrap font-serif text-lg italic text-slate-800 leading-relaxed pl-4 border-l-4 border-orange-200">
-                                                {data.ordonnance}
+                                        <div className="mb-6 italic text-[11px] text-slate-600">
+                                            <p>Patient(e) : <span className="font-bold not-italic text-slate-900">{id ? "Psychiatre de Garde" : "Consultant"}</span></p>
+                                        </div>
+
+                                        <div className="flex-1">
+                                            <div className="space-y-4 font-serif text-base">
+                                                {data.prescriptions.length > 0 ? (
+                                                    <ul className="space-y-4">
+                                                        {data.prescriptions.map((p, idx) => (
+                                                            <li key={p.id} className="border-l-2 border-slate-100 pl-3 py-1">
+                                                                <div className="flex flex-col">
+                                                                    <span className="font-bold text-sm uppercase">{p.nom}</span>
+                                                                    <div className="flex gap-2 text-[10px] italic text-slate-500 mt-0.5">
+                                                                        {p.dosage && <span>{p.dosage}</span>}
+                                                                        {p.frequence && <span>- {p.frequence}</span>}
+                                                                        {p.duree && <span>- Pendant {p.duree}</span>}
+                                                                    </div>
+                                                                </div>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                ) : (
+                                                    <p className="whitespace-pre-wrap leading-relaxed text-sm">
+                                                        {data.ordonnance}
+                                                    </p>
+                                                )}
                                             </div>
-                                        )}
+                                        </div>
+
+                                        <div className="mt-8 pt-2 border-t border-slate-50 italic text-slate-400 text-[9px]">
+                                            <p>Prochain Rendez-vous : <span className="text-slate-900 not-italic font-bold ml-1">{data.prochain_rdv || "................................................................"}</span></p>
+                                        </div>
                                     </div>
-                                    
-                                    <div className="mt-32 flex justify-between items-end">
-                                        <div className="text-[10px] text-slate-300">
-                                            <p>Numéro de série: {Date.now()}</p>
-                                            <p>Validité: 3 mois</p>
-                                        </div>
-                                        <div className="text-center">
-                                            <div className="w-40 h-20 border-2 border-dashed border-indigo-100 rounded-2xl flex items-center justify-center text-[10px] text-indigo-200 uppercase mb-2 font-bold tracking-widest bg-indigo-50/30">
-                                                Cachet & Signature
-                                            </div>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase">Date: {new Date().toLocaleDateString('fr-FR')}</p>
-                                        </div>
+
+                                    {/* PIED DE PAGE IMAGE */}
+                                    <div className="w-full mt-auto">
+                                        <img 
+                                            src="/ordonnace pied.png" 
+                                            alt="Pied de page" 
+                                            className="w-full h-auto object-contain"
+                                        />
                                     </div>
                                 </div>
                             </div>

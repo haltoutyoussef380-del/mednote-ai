@@ -124,6 +124,65 @@ export async function createNote(formData: FormData) {
         console.error('Supabase Insert Error:', error);
     } else {
         console.log('Supabase Insert Success');
+
+        // --- APPOINTMENT COMPLETION LOGIC ---
+        // Marquer le RDV d'aujourd'hui comme 'terminé'
+        const now = new Date();
+        const startOfDay = new Date(now.setHours(0, 0, 0, 0)).toISOString();
+        const endOfDay = new Date(now.setHours(23, 59, 59, 999)).toISOString();
+
+        const { data: todayAppt, error: findApptError } = await supabase
+            .from('appointments')
+            .select('id')
+            .eq('patient_id', patientId)
+            .eq('status', 'programmé')
+            .gte('date', startOfDay)
+            .lte('date', endOfDay)
+            .maybeSingle();
+
+        if (todayAppt) {
+            console.log('Found today\'s appointment, marking as completed:', todayAppt.id);
+            await supabase.from('appointments').update({ status: 'terminé' }).eq('id', todayAppt.id);
+        } else if (findApptError) {
+            console.error('Error finding today\'s appointment:', findApptError);
+        }
+        
+        // --- AUTO APPOINTMENT CREATION (PROCHAIN RDV) ---
+        const rdvData = contentJson.prochain_rdv;
+        if (rdvData) {
+            console.log('Detected Prochain RDV data:', rdvData);
+            
+            // On s'assure d'avoir un tableau pour itérer
+            const rdvList = Array.isArray(rdvData) ? rdvData : [rdvData];
+            
+            // Import dynamiquement pour éviter les cycles de dépendance
+            const { parseRelativeDate } = await import('@/app/actions/ai-voice');
+            
+            for (const rdvText of rdvList) {
+                if (!rdvText || rdvText === "Non renseigné") continue;
+                
+                const targetDate = await parseRelativeDate(rdvText);
+                console.log(`Parsed Date for "${rdvText}":`, targetDate);
+
+                if (targetDate) {
+                    const { error: apptError } = await supabase.from('appointments').insert({
+                        patient_id: patientId,
+                        doctor_id: user.id,
+                        date: targetDate,
+                        type: 'Suivi',
+                        status: 'à confirmer',
+                        notes: `Généré automatiquement : ${rdvText}`
+                    });
+                    
+                    if (apptError) console.error('Auto Appointment Error:', apptError);
+                    else console.log(`Auto Appointment Success for ${rdvText}`);
+                }
+            }
+        }
+
+        // Force le rafraîchissement des pages liées à l'agenda et dashboard
+        revalidatePath('/dashboard/appointments');
+        revalidatePath('/dashboard');
     }
 
     if (!error) {

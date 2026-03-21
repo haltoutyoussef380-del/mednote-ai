@@ -32,7 +32,38 @@ export async function chatWithPatientData(patientId: string, question: string) {
         .order('created_at', { ascending: false })
         .limit(10)
 
-    // 4. Construction du Contexte
+// 4. Helper pour formater le contenu des notes (Gère JSON et Texte)
+    const formatNoteContent = (content: any): string => {
+        if (!content) return "Pas de contenu.";
+        if (typeof content === 'string') return content;
+        
+        // Si c'est le nouveau format structuré (ObservationData)
+        try {
+            const parts = [];
+            if (content.motif) parts.push(`Motif: ${content.motif}`);
+            if (content.antecedents) {
+                const ant = content.antecedents;
+                if (ant.details || ant.familiaux) {
+                    parts.push(`Antécédents: ${ant.details || ''} ${ant.familiaux ? '(Famille: ' + ant.familiaux + ')' : ''}`);
+                }
+            }
+            if (content.histoire) parts.push(`Histoire: ${content.histoire}`);
+            if (content.conclusion) parts.push(`Conclusion: ${content.conclusion}`);
+            if (content.diagnostic) parts.push(`Diagnostic: ${content.diagnostic}`);
+            if (content.prochain_rdv) parts.push(`Prochain RDV: ${content.prochain_rdv}`);
+            
+            if (content.prescriptions && Array.isArray(content.prescriptions)) {
+                const meds = content.prescriptions.map((p: any) => `- ${p.nom} ${p.dosage || ''} (${p.frequence || ''})`).join('\n');
+                if (meds) parts.push(`Prescriptions:\n${meds}`);
+            }
+
+            return parts.length > 0 ? parts.join('\n') : JSON.stringify(content);
+        } catch (e) {
+            return typeof content === 'object' ? JSON.stringify(content) : String(content);
+        }
+    };
+
+    // 5. Construction du Contexte
     const contextString = `
     PATIENT: ${patient.first_name} ${patient.last_name} (${patient.gender}, né le ${patient.birth_date})
     MATRICULE: ${patient.matricule || 'N/A'}
@@ -40,7 +71,11 @@ export async function chatWithPatientData(patientId: string, question: string) {
     VILLE: ${patient.city || 'N/A'}
     
     HISTORIQUE MEDICAL (Du plus récent au plus ancien) :
-    ${notes?.map(n => `- [${new Date(n.created_at).toLocaleDateString()}] (${n.type}) : ${n.content?.substring(0, 500)}...`).join('\n') || "Aucune note disponible."}
+    ${notes?.map(n => {
+        const date = new Date(n.created_at).toLocaleDateString();
+        const formattedContent = formatNoteContent(n.content);
+        return `- [${date}] (${n.type}) :\n${formattedContent}`;
+    }).join('\n\n') || "Aucune note disponible."}
     `
 
     // 5. Appel LLM

@@ -161,26 +161,42 @@ RÉPONDS UNIQUEMENT LE JSON.`
     }
 }
 
-export const NAVIGATION_PROMPT = `Tu es un assistant médical intelligent pour un formulaire d'observation psychiatrique.
+const NAVIGATION_PROMPT = `Tu es un assistant médical intelligent pour un formulaire d'observation psychiatrique.
 
 Le formulaire a ces champs :
 10. suivi - Suivi médical
-11. ordonnance - Prescription médicamenteuse (Médicament, Dosage, Fréquence)
-    
+11. prescriptions - Prescription structurée (Médicament, Dosage, Fréquence, Durée)
+12. prochain_rdv - Date ou délai du prochain rendez-vous
+13. examen.presentation - Présentation du patient
+14. examen.contact - Qualité du contact (Facile, Familier, Réticent, Méfiant, Oppositionnel)
+15. examen.humeur - Humeur et affect (Euthymique, Dépressive, Expansive, Irritable, Anxieuse)
+16. examen.pensee - Cours et contenu de la pensée (Fluide, Ralentie, Accélérée, Logorrhée, Délirante)
+17. examen.cognition - Fonctions cognitives (Vigilance normale, Obnubilation, Désorienté, Attention diminuée)
+18. examen - Examen psychiatrique (Résumé général)
+
 Analyse la dictée et détermine :
 1. Dans quel champ mettre le texte
 2. Si c'est une sélection de dropdown (antecedents.type)
 3. Le texte corrigé (espaces, ponctuation)
+4. EXCLUSIF : Si l'utilisateur mentionne un prochain rendez-vous (ex: "prochain RDV dans 15 jours", "à revoir le 20 mai", "RDV le mois prochain"), extrais cette information.
 
-Règles pour ordonnance :
-- Si le médecin dit "Prescription", "Ordonnance", "Je prescris", "Prendre", ou mentionne des médicaments (ex: Haldol, Risperdal), utilise le champ "ordonnance".
-- Formate l'ordonnance de manière propre : "Nom du médicament - Dosage - Fréquence".
+Règles pour prescriptions :
+- Si le médecin dit "Prescription", "Ordonnance", "Je prescris", "Prendre", utilise le champ "prescriptions".
+- Tente d'extraire les détails : nom, dosage, frequence, duree.
+- Si des détails manquent, laisse-les vides.
 
 Réponds UNIQUEMENT en JSON valide :
 {
   "field": "nom_du_champ",
-  "value": "texte corrigé",
-  "dropdownSelection": "option" (optionnel)
+  "value": "texte corrigé pour affichage général",
+  "dropdownSelection": "option" (optionnel),
+  "prochain_rdv": "date ou délai extrait" (optionnel),
+  "prescription": {
+    "nom": "string",
+    "dosage": "string",
+    "frequence": "string",
+    "duree": "string"
+  } (seulement si le champ est 'prescriptions')
 }`;
 
 /**
@@ -295,11 +311,17 @@ export async function detectVoiceCommand(transcript: string): Promise<{
             'biographie': 'biographie',
             'histoire': 'histoire',
             'examen': 'examen',
+            'présentation': 'examen.presentation',
+            'contact': 'examen.contact',
+            'humeur': 'examen.humeur',
+            'pensée': 'examen.pensee',
+            'cognition': 'examen.cognition',
             'conclusion': 'conclusion',
             'diagnostic': 'diagnostic',
             'suivi': 'suivi',
-            'ordonnance': 'ordonnance',
-            'prescription': 'ordonnance'
+            'prescriptions': 'prescriptions',
+            'ordonnance': 'prescriptions',
+            'prescription': 'prescriptions'
         };
 
         for (const [keyword, target] of Object.entries(navMap)) {
@@ -326,4 +348,41 @@ export async function detectVoiceCommand(transcript: string): Promise<{
     }
 
     return { type: 'dictation', value: transcript };
+}
+
+/**
+ * Convertit un texte de délai (ex: "dans 15 jours", "le 20 mai") en date ISO YYYY-MM-DD
+ */
+export async function parseRelativeDate(text: string): Promise<string | null> {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const response = await groq.chat.completions.create({
+            model: "llama-3.3-70b-versatile",
+            messages: [
+                {
+                    role: "system",
+                    content: `Tu es un expert en traitement de dates. 
+                    Aujourd'hui nous sommes le ${today}.
+                    Convertis le texte suivant en une date au format YYYY-MM-DD.
+                    
+                    Règles :
+                    - Réponds UNIQUEMENT avec la date au format YYYY-MM-DD.
+                    - Si le texte est vague (ex: "prochainement"), estime une date logique (ex: dans 1 mois).
+                    - Si aucune date n'est trouvable, réponds "NULL".`
+                },
+                {
+                    role: "user",
+                    content: text
+                }
+            ],
+            temperature: 0,
+            max_tokens: 20
+        });
+
+        const result = response.choices[0]?.message?.content?.trim() || "NULL";
+        return result === "NULL" ? null : result;
+    } catch (error) {
+        console.error("Erreur parsing date:", error);
+        return null;
+    }
 }

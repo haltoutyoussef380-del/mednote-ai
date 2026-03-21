@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { PrintButton } from '@/components/print/PrintButton'
 
 export default async function PrintPrescriptionPage({ params }: { params: Promise<{ noteId: string }> }) {
     const supabase = await createClient()
@@ -32,82 +33,107 @@ export default async function PrintPrescriptionPage({ params }: { params: Promis
     const date = format(new Date(note.created_at), 'd MMMM yyyy', { locale: fr })
 
     return (
-        <div className="min-h-screen bg-white text-black p-8 max-w-[210mm] mx-auto print:p-0 print:max-w-none">
+        <div className="min-h-screen bg-white text-black p-0 sm:p-8 flex flex-col items-center">
+            {/* Styles CSS spécifiques pour l'impression A5 */}
+            <style dangerouslySetInnerHTML={{ __html: `
+                @page {
+                    size: A5;
+                    margin: 0;
+                }
+                @media print {
+                    body {
+                        margin: 0;
+                        padding: 0;
+                    }
+                    .no-print {
+                        display: none !important;
+                    }
+                }
+                .prescription-container {
+                    width: 148mm;
+                    min-height: 210mm;
+                    padding: 0;
+                    margin: 0;
+                    position: relative;
+                    background: white;
+                    display: flex;
+                    flex-direction: column;
+                }
+            `}} />
 
-            {/* EN-TÊTE HÔPITAL (Visible uniquement à l'impression souvent, mais ici on l'affiche tout le temps) */}
-            <div className="flex justify-between items-start border-b-2 border-black pb-6 mb-8">
-                <div className="text-center">
-                    <h1 className="text-2xl font-bold uppercase tracking-wider">Hôpital Psychiatrique</h1>
-                    <h2 className="text-lg font-semibold text-gray-700">Service de Psychiatrie Adulte</h2>
-                    <p className="text-xs text-gray-500 mt-1">123 Avenue de la Santé, 75000 Ville</p>
-                    <p className="text-xs text-gray-500">Tél: 01 23 45 67 89</p>
+            <div className="prescription-container shadow-2xl print:shadow-none">
+                {/* EN-TÊTE IMAGE */}
+                <div className="w-full">
+                    <img 
+                        src="/ordonnace entete.png" 
+                        alt="En-tête" 
+                        className="w-full h-auto object-contain"
+                    />
                 </div>
-                <div className="text-right">
-                    <h3 className="text-xl font-bold">Dr. {doctor?.full_name || 'Médecin'}</h3>
-                    <p className="text-sm">Psychiatre</p>
-                    <p className="text-sm">RPPS: 1000xxxxxxx</p>
-                </div>
-            </div>
 
-            {/* INFO PATIENT */}
-            <div className="mb-12">
-                <div className="flex justify-between items-baseline mb-2">
-                    <span className="font-bold text-sm">Le {date}</span>
-                    <span className="font-bold text-sm">Lieu: Consultation Externe</span>
-                </div>
-                <div className="border border-black p-4 rounded-lg bg-gray-50 print:bg-transparent">
-                    <p className="font-bold text-lg mb-1">
-                        Patient : {patient.first_name} {patient.last_name}
-                    </p>
-                    <div className="flex gap-6 text-sm">
-                        <span>Né(e) le : {format(new Date(patient.birth_date), 'dd/MM/yyyy')}</span>
-                        <span>Âge : {new Date().getFullYear() - new Date(patient.birth_date).getFullYear()} ans</span>
-                        <span>N° Dossier : {patient.id.substring(0, 8).toUpperCase()}</span>
+                {/* CONTENU PRINCIPAL */}
+                <div className="px-10 py-6 flex-1 flex flex-col">
+                    {/* DATE ET LIEU */}
+                    <div className="flex justify-end mb-6">
+                        <div className="text-right font-medium">
+                            <p className="text-sm">Tanger le : <span className="border-b border-dotted border-black px-4">{date}</span></p>
+                        </div>
+                    </div>
+
+                    {/* TITRE */}
+                    <h1 className="text-center text-3xl font-bold underline mb-10 tracking-widest text-[#2c3e50]">
+                        ORDONNANCE
+                    </h1>
+
+                    {/* PATIENT INFO (Subtil) */}
+                    <div className="mb-8 italic text-slate-700">
+                        <p>Patient(e) : <span className="font-bold not-italic">{patient.first_name} {patient.last_name}</span></p>
+                    </div>
+
+                    {/* CORPS DE L'ORDONNANCE (LISTE DE MÉDICAMENTS) */}
+                    <div className="flex-1">
+                        <div className="space-y-4 font-serif text-lg">
+                            {content.prescriptions && content.prescriptions.length > 0 ? (
+                                <ul className="space-y-6">
+                                    {content.prescriptions.map((p: any, idx: number) => (
+                                        <li key={p.id || idx} className="border-l-4 border-slate-200 pl-4 py-1">
+                                            <div className="flex flex-col">
+                                                <span className="font-bold text-xl uppercase tracking-tight">{p.nom}</span>
+                                                <div className="flex gap-4 text-base italic text-slate-600 mt-1">
+                                                    {p.dosage && <span>{p.dosage}</span>}
+                                                    {p.frequence && <span>- {p.frequence}</span>}
+                                                    {p.duree && <span>- Pendant {p.duree}</span>}
+                                                </div>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p className="whitespace-pre-wrap leading-relaxed">
+                                    {content.ordonnance || content.suivi || prescriptionText}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* PROCHAIN RENDEZ-VOUS INDICATEUR (Comme sur le modèle) */}
+                    <div className="mt-12 pt-4 border-t border-slate-100 italic text-slate-500 text-sm">
+                        <p>Prochain Rendez-vous : <span className="text-black not-italic font-bold ml-1">{content.prochain_rdv || "................................................................"}</span></p>
                     </div>
                 </div>
-            </div>
 
-            {/* ORDONNANCE / CONTENU */}
-            <div className="min-h-[400px]">
-                <h3 className="text-center text-xl font-bold underline mb-8">ORDONNANCE</h3>
-
-                <div className="prose max-w-none text-lg leading-relaxed whitespace-pre-wrap font-serif">
-                    {/* Si c'est un tableau de médocs (futur), on map. Ici c'est du texte libre ou structuré */}
-                    {prescriptionText}
+                {/* PIED DE PAGE IMAGE */}
+                <div className="w-full mt-auto">
+                    <img 
+                        src="/ordonnace pied.png" 
+                        alt="Pied de page" 
+                        className="w-full h-auto object-contain"
+                    />
                 </div>
             </div>
 
-            {/* PIED DE PAGE / SIGNATURE */}
-            <div className="mt-16 flex justify-end">
-                <div className="w-1/3 text-center">
-                    <p className="mb-12 italic">Signature et Cachet :</p>
-                    <div className="border-t border-black w-full"></div>
-                    <p className="text-xs mt-2">Ce document est valide sans signature manuscrite si transmis via messagerie sécurisée.</p>
-                </div>
-            </div>
-
-            {/* MENTION LÉGALE IMPRESSION */}
-            <div className="fixed bottom-4 left-0 w-full text-center text-[10px] text-gray-400 print:block hidden">
-                Imprimé via MedNote AI le {new Date().toLocaleString('fr-FR')} - Document confidentiel.
-            </div>
-
-            {/* BOUTON D'IMPRESSION (Visible écran uniquement) */}
-            <div className="fixed bottom-8 right-8 print:hidden">
-                <button
-                    onClick={() => {
-                        window.print()
-                    }} // Ce code sera hydraté côté client via un petit script ou juste onClick inline si 'use client'
-                    className="bg-blue-600 text-white px-6 py-3 rounded-full shadow-xl font-bold hover:bg-blue-700 flex items-center gap-2"
-                >
-                    🖨️ Imprimer / PDF
-                </button>
-            </div>
-
-            {/* Script auto-print pour simplifier */}
-            <script dangerouslySetInnerHTML={{
-                __html: `
-                // document.getElementById('print-btn').onclick = () => window.print();
-            `}} />
+            {/* BOUTON D'IMPRESSION (Composant Client) */}
+            <PrintButton />
         </div>
     )
 }

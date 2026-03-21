@@ -1,0 +1,100 @@
+{
+    "name": "HOPITAL-UNIVERSITAIRE-PSY - ADAPTED V1",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "magic-dictation",
+                "responseMode": "lastNode",
+                "options": {
+                    "responseContentType": "application/json"
+                }
+            },
+            "id": "webhook-trigger",
+            "name": "Webhook (Magic Dictation)",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                460,
+                300
+            ],
+            "webhookId": "magic-dictation"
+        },
+        {
+            "parameters": {
+                "resource": "chat",
+                "provider": "openai",
+                "model": "llama-3.3-70b-versatile",
+                "prompt": {
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "Tu es une IA de triage pour un Hôpital Psychiatrique.\nTon objectif est d'analyser le texte dicté pour remplir le formulaire d'admission.\n\nExtrais les entités suivantes en JSON :\n- nom (String)\n- prenom (String)\n- cin (String)\n- telephone (String)\n- motif_brut (String : le texte complet)\n- categorie (URGENCE_VITALE | URGENCE_RAPIDE | RDV_STANDARD | INFO_SIMPLE)\n- risque_suicidaire (FAIBLE | MODERE | ELEVE)\n- resume (String : résumé synthétique du motif)\n\nSi une information est manquante, laisse la vide ou null."
+                        },
+                        {
+                            "role": "user",
+                            "content": "Texte dicté : \"{{ $json.text }}\""
+                        }
+                    ]
+                },
+                "options": {
+                    "baseURL": "https://api.groq.com/openai/v1",
+                    "responseFormat": "json_object"
+                }
+            },
+            "id": "llm-triage",
+            "name": "IA Triage (Groq)",
+            "type": "n8n-nodes-base.openAi",
+            "typeVersion": 1,
+            "position": [
+                700,
+                300
+            ],
+            "credentials": {
+                "openaiApi": {
+                    "id": "YOUR_OPENAI_CREDENTIAL_ID",
+                    "name": "Groq API Key"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "{\n  \"success\": true,\n  \"data\": {{ $json.message.content }}\n}",
+                "options": {}
+            },
+            "id": "respond-to-webhook",
+            "name": "Respond to Webhook",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                940,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook (Magic Dictation)": {
+            "main": [
+                [
+                    {
+                        "node": "IA Triage (Groq)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "IA Triage (Groq)": {
+            "main": [
+                [
+                    {
+                        "node": "Respond to Webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

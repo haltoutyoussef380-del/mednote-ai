@@ -1,0 +1,96 @@
+{
+    "name": "Magic Dictation (MedNote AI) - V6 TEXT ONLY",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "magic-dictation",
+                "options": {}
+            },
+            "id": "webhook-trigger",
+            "name": "Webhook (JSON)",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                460,
+                240
+            ],
+            "webhookId": "magic-dictation"
+        },
+        {
+            "parameters": {
+                "resource": "chat",
+                "provider": "openai",
+                "model": "llama-3.3-70b-versatile",
+                "prompt": {
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "Tu es un expert en extraction de données médicales à partir de dictées orales bruitées.\nTon but est d'extraire les infos patient en JSON strict.\n\nRègles d'extraction :\n1. Sépare bien 'Nom' et 'Prénom'. Si ambigu, le premier mot est souvent le Prénom.\n2. 'Ville' -> Cherche une ville marocaine (ex: Casablanca, Rabat).\n3. 'CINE' -> Cherche un code alphanumérique (Lettres + Chiffres, ex: AB1234).\n4. 'Telephone' -> Cherche une suite de 10 chiffres (06...).\n5. Correction phonétique : \"Sète\" = 7, \"Hant\" = hotmail, etc.\n6. 'Mutuelle' -> Cherche un organisme (CNSS, CNOPS, AMO). Si autre, mets le nom.\n7. 'Immatriculation' -> Numéro d'affiliation (chiffres).\n\nFormat de sortie attendu (JSON uniquement) :\n{\n  \"first_name\": \"string\",\n  \"last_name\": \"string\",\n  \"birth_date\": \"YYYY-MM-DD\",\n  \"gender\": \"M\" | \"F\",\n  \"email\": \"string\",\n  \"phone\": \"string\",\n  \"cine\": \"string\",\n  \"address\": \"string\",\n  \"city\": \"string\",\n  \"insurance_provider\": \"CNSS\" | \"CNOPS\" | \"AMO\" | \"Autre string\",\n  \"insurance_id\": \"string\"\n}"
+                        },
+                        {
+                            "role": "user",
+                            "content": "Transcription: {{ $json.body.text }}"
+                        }
+                    ]
+                },
+                "options": {
+                    "baseURL": "https://api.groq.com/openai/v1"
+                }
+            },
+            "id": "llm-structure",
+            "name": "LLM Structuration",
+            "type": "n8n-nodes-base.openAi",
+            "typeVersion": 1,
+            "position": [
+                680,
+                240
+            ],
+            "credentials": {
+                "openaiApi": {
+                    "id": "YOUR_OPENAI_CREDENTIAL_ID",
+                    "name": "OpenAI account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "{\n  \"success\": true,\n  \"data\": {{ $json.result || $json.body.text }}\n}",
+                "options": {}
+            },
+            "id": "respond-to-webhook",
+            "name": "Respond to Webhook",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                900,
+                240
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook (JSON)": {
+            "main": [
+                [
+                    {
+                        "node": "LLM Structuration",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "LLM Structuration": {
+            "main": [
+                [
+                    {
+                        "node": "Respond to Webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

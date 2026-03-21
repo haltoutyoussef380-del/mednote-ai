@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atelier - Architecture & API du MVP MedNote AI</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+            border-left: 4px solid #3498db;
+            padding-left: 10px;
+        }
+        h3 {
+            color: #7f8c8d;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .note {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .schema-box {
+            background-color: #e8f4f8;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .emoji {
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Atelier - Architecture & API du MVP MedNote AI</h1>
+    
+    <h2>Partie 1 : Identifier les APIs du MVP</h2>
+    
+    <p>Voici les actions principales par profil, chaque action correspondant à un <strong>endpoint API</strong>.</p>
+    
+    <h3>Pour un Utilisateur (Staff Médical : Médecin, Infirmier, Secrétaire)</h3>
+    <ul>
+        <li><strong>Se connecter</strong> (Login)</li>
+        <li><strong>Consulter la liste des patients</strong></li>
+        <li><strong>Créer une fiche patient</strong> (Secrétaire/Médecin)</li>
+        <li><strong>Créer une observation médicale</strong> (Médecin)</li>
+        <li><strong>Dicter une note via IA</strong> (Médecin)</li>
+        <li><strong>Ajouter des constantes/soins</strong> (Infirmier)</li>
+        <li><strong>Rechercher un patient</strong></li>
+    </ul>
+    
+    <h3>Pour un Administrateur (Super Admin)</h3>
+    <ul>
+        <li><strong>Créer un compte staff</strong> (Onboarding Médecin/Infirmier/Secrétaire)</li>
+        <li><strong>Lister le personnel</strong></li>
+        <li><strong>Supprimer une note</strong> (Cas exceptionnel/Erreur)</li>
+    </ul>
+    
+    <div class="note">
+        <strong>Note importante :</strong> Il n'y a <strong>PAS d'inscription publique</strong> pour les profils médicaux. Les comptes sont créés exclusivement par le <strong>Super Admin</strong>.
+    </div>
+    
+    <h2>Partie 2 : Définir les Endpoints</h2>
+    
+    <p><em>Note: Authentification via Header <code>Authorization: Bearer &lt;TOKEN&gt;</code> pour tous les endpoints sauf <code>/auth/login</code></em></p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Endpoint (URL)</th>
+                <th>Méthode</th>
+                <th>Rôle Autorisé</th>
+                <th>Données Envoyées</th>
+                <th>Données Reçues</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>/auth/login</code></td>
+                <td><strong>POST</strong></td>
+                <td>Public</td>
+                <td><code>{ email, password }</code></td>
+                <td><code>{ access_token, user_role }</code></td>
+            </tr>
+            <tr>
+                <td><code>/api/admin/users</code></td>
+                <td><strong>POST</strong></td>
+                <td><span class="emoji">👑</span> Super Admin</td>
+                <td><code>{ email, password, role, name }</code></td>
+                <td><code>{ user_id, created_at }</code></td>
+            </tr>
+            <tr>
+                <td><code>/api/patients</code></td>
+                <td><strong>GET</strong></td>
+                <td>Tous (sauf public)</td>
+                <td><code>{ page: 1, search: "nom" }</code></td>
+                <td><code>[ { id, nom, prenom... } ]</code></td>
+            </tr>
+            <tr>
+                <td><code>/api/patients</code></td>
+                <td><strong>POST</strong></td>
+                <td><span class="emoji">🩺</span> Médecin, <span class="emoji">📅</span> Secrétaire</td>
+                <td><code>{ nom, prenom, secu, contact }</code></td>
+                <td><code>{ patient_id }</code></td>
+            </tr>
+            <tr>
+                <td><code>/api/patients/{id}</code></td>
+                <td><strong>PUT</strong></td>
+                <td><span class="emoji">🩺</span> Médecin, <span class="emoji">📅</span> Secrétaire</td>
+                <td><code>{ adresse, tel }</code></td>
+                <td><code>{ success: true }</code></td>
+            </tr>
+            <tr>
+                <td><code>/api/notes</code></td>
+                <td><strong>POST</strong></td>
+                <td><span class="emoji">🩺</span> Médecin</td>
+                <td><code>{ patient_id, type, content }</code></td>
+                <td><code>{ note_id, created_at }</code></td>
+            </tr>
+            <tr>
+                <td><code>/api/care</code></td>
+                <td><strong>POST</strong></td>
+                <td><span class="emoji">🩺</span> Médecin, <span class="emoji">💉</span> Infirmier</td>
+                <td><code>{ patient_id, type, value, unit }</code></td>
+                <td><code>{ care_id }</code></td>
+            </tr>
+            <tr>
+                <td><code>/api/voice-pilot</code></td>
+                <td><strong>POST</strong></td>
+                <td><span class="emoji">🩺</span> Médecin</td>
+                <td><code>{ audio_blob, context_step }</code></td>
+                <td><code>{ transcript, actions: [] }</code></td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <h2>Partie 3 : Schéma Frontend ↔ Backend (Magic Dictée)</h2>
+    
+    <div class="schema-box">
+        <h3 style="margin-top: 0;">Flux "Magic Dictée" - Dictée Vocale Intelligente</h3>
+        
+        <p><strong>Étape 1 :</strong> <span class="emoji">🩺</span> Le Médecin clique sur le bouton "Magic Dictée" et parle dans le micro</p>
+        <p style="margin-left: 40px;">↓ Audio enregistré (format Blob)</p>
+        
+        <p><strong>Étape 2 :</strong> <span class="emoji">🖥️</span> Le Frontend envoie l'audio au Backend</p>
+        <p style="margin-left: 40px;"><code>POST /api/voice-pilot</code></p>
+        <p style="margin-left: 40px;">↓</p>
+        
+        <p><strong>Étape 3 :</strong> <span class="emoji">⚙️</span> Le Backend (Proxy Sécurisé) traite la requête</p>
+        <p style="margin-left: 40px;">→ Appel API <span class="emoji">🧠</span> <strong>Groq Whisper</strong> : Transcription Audio → Texte</p>
+        <p style="margin-left: 40px;">→ Appel API <span class="emoji">🧠</span> <strong>Groq Llama 3</strong> : Analyse du texte + Extraction d'actions</p>
+        <p style="margin-left: 40px;">↓</p>
+        
+        <p><strong>Étape 4 :</strong> <span class="emoji">⚙️</span> Le Backend retourne au Frontend</p>
+        <p style="margin-left: 40px;"><code>{ transcript: "Patient anxieux...", actions: [{ type: "FILL", field: "motif", value: "..." }] }</code></p>
+        <p style="margin-left: 40px;">↓</p>
+        
+        <p><strong>Étape 5 :</strong> <span class="emoji">🖥️</span> Le Frontend exécute les actions</p>
+        <p style="margin-left: 40px;">→ Remplit automatiquement les champs du formulaire</p>
+        <p style="margin-left: 40px;">→ Affiche la transcription en temps réel</p>
+        <p style="margin-left: 40px;">↓</p>
+        
+        <p><strong>Étape 6 :</strong> <span class="emoji">🩺</span> Le Médecin valide et sauvegarde</p>
+        <p style="margin-left: 40px;"><code>POST /api/notes</code> → Enregistrement dans <span class="emoji">🌩️</span> Supabase</p>
+    </div>
+    
+    <h2>Partie 4 : Mise en commun rapide (Feedback)</h2>
+    
+    <h3>Points forts de notre architecture :</h3>
+    <ul>
+        <li><strong>Clarté</strong> : Chaque rôle a des endpoints dédiés. L'API est RESTful (Noms clairs, Verbes HTTP standards).</li>
+        <li><strong>Cohérence MVP</strong> : Pas de fonctionnalités superflues. On se concentre sur l'essentiel : Gérer les patients et dicter les notes.</li>
+        <li><strong>Simplicité</strong> : Le backend sert de "passe-plat" intelligent pour sécuriser les clés API de l'IA (Groq) et centraliser les règles de gestion (Rôles).</li>
+    </ul>
+    
+    <h2>Partie 5 : Livrables attendus</h2>
+    
+    <h3>✔️ Liste des Endpoints API</h3>
+    <p>Fournie en Partie 2 (Tableau complet ci-dessus)</p>
+    
+    <h3>✔️ Description du Rôle du Backend</h3>
+    <ul>
+        <li><strong>Orchestrateur Sécurisé</strong> : Il vérifie l'identité (Token) avant chaque action.</li>
+        <li><strong>Proxy IA</strong> : Il cache la complexité et les clés secrètes des services tiers (Groq, Supabase).</li>
+        <li><strong>Validation Métier</strong> : Il applique les règles de gestion (ex: un infirmier ne peut pas modifier un diagnostic).</li>
+    </ul>
+    
+    <h3>✔️ Schéma Frontend ↔ Backend</h3>
+    <p>Fourni en Partie 3 (Flux Magic Dictée détaillé ci-dessus)</p>
+    
+    <h3>✔️ Règles d'Accès (RBAC)</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Rôle</th>
+                <th>Permissions</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><span class="emoji">👑</span> <strong>Super Admin</strong></td>
+                <td>Gestion des utilisateurs (Création/Suppression), Accès technique global</td>
+            </tr>
+            <tr>
+                <td><span class="emoji">🩺</span> <strong>Médecin</strong></td>
+                <td>Accès complet Dossier Patient + IA (Voice Pilot), Création d'observations</td>
+            </tr>
+            <tr>
+                <td><span class="emoji">💉</span> <strong>Infirmier</strong></td>
+                <td>Accès Lecture Dossier + Ajout Soins/Constantes (pas de modification diagnostic)</td>
+            </tr>
+            <tr>
+                <td><span class="emoji">📅</span> <strong>Secrétaire</strong></td>
+                <td>Accès Administratif uniquement (Identité Patient, RDV, pas d'accès notes médicales)</td>
+            </tr>
+        </tbody>
+    </table>
+    
+    <hr style="margin: 40px 0;">
+    
+    <p style="text-align: center; color: #7f8c8d;">
+        <em>Document généré pour l'Atelier Architecture API - MedNote AI</em>
+    </p>
+</body>
+</html>

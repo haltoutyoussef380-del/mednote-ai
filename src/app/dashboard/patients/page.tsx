@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { PatientFilters } from '@/components/patient/PatientFilters'
-import { Plus, User } from 'lucide-react'
+import { Plus, User, Stethoscope } from 'lucide-react'
 
 export default async function PatientsPage({
     searchParams,
@@ -10,6 +10,14 @@ export default async function PatientsPage({
 }) {
     const supabase = await createClient()
     const params = await searchParams
+
+    // Get current user role
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user?.id)
+        .single()
 
     const query = typeof params.query === 'string' ? params.query : ''
     const phone = typeof params.phone === 'string' ? params.phone : ''
@@ -137,13 +145,23 @@ export default async function PatientsPage({
                                         {patient.cine || '-'}
                                     </td>
                                     <td className="whitespace-nowrap px-3 py-4 text-right text-sm font-medium sm:pr-6">
-                                        <Link
-                                            href={`/dashboard/patients/${patient.id}`}
-                                            className="text-primary hover:text-primary/80 font-semibold inline-flex items-center gap-1 group-hover:underline"
-                                        >
-                                            Voir Dossier
-                                            <span className="sr-only">, {patient.first_name}</span>
-                                        </Link>
+                                        <div className="flex items-center justify-end gap-3">
+                                            {['medecin', 'admin'].includes(profile?.role?.toLowerCase() || '') && (
+                                                <Link
+                                                    href={`/dashboard/patients/${patient.id}/notes/new`}
+                                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg transition-all font-bold text-xs"
+                                                >
+                                                    <Stethoscope className="w-3.5 h-3.5" />
+                                                    Consulter
+                                                </Link>
+                                            )}
+                                            <Link
+                                                href={`/dashboard/patients/${patient.id}`}
+                                                className="text-gray-400 hover:text-gray-600 font-medium inline-flex items-center gap-1 hover:underline text-xs"
+                                            >
+                                                Voir Dossier
+                                            </Link>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}

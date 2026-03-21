@@ -6,12 +6,31 @@ export default async function DashboardPage() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    // Dates pour filtre "Aujourd'hui"
-    const today = new Date();
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+    // Dates pour filtre "Aujourd'hui" (Format ISO YYYY-MM-DD)
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const startOfDay = `${todayStr}T00:00:00.000Z`;
+    const endOfDay = `${todayStr}T23:59:59.999Z`;
+
+    // Get profile for role
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    const role = profile?.role?.toLowerCase() || '';
+    const isAdminOrSecretary = ['admin', 'secretaire'].includes(role);
 
     // 1. Fetch Real Counts (Parallel)
+    let apptTodayQuery = supabase.from('appointments')
+        .select('*', { count: 'exact', head: true })
+        .gte('date', startOfDay)
+        .lte('date', endOfDay)
+        .not('status', 'in', '("terminé", "annulé")');
+
+    let apptTotalQuery = supabase.from('appointments').select('*', { count: 'exact', head: true });
+
+    if (!isAdminOrSecretary) {
+        apptTodayQuery = apptTodayQuery.eq('doctor_id', user.id);
+        apptTotalQuery = apptTotalQuery.eq('doctor_id', user.id);
+    }
+
     const [
         { count: patientCount },
         { count: noteCount },
@@ -20,8 +39,8 @@ export default async function DashboardPage() {
     ] = await Promise.all([
         supabase.from('patients').select('*', { count: 'exact', head: true }),
         supabase.from('notes').select('*', { count: 'exact', head: true }),
-        supabase.from('appointments').select('*', { count: 'exact', head: true }),
-        supabase.from('appointments').select('*', { count: 'exact', head: true }).gte('date', startOfDay).lte('date', endOfDay)
+        apptTotalQuery,
+        apptTodayQuery
     ]);
 
     const stats = [
@@ -49,7 +68,7 @@ export default async function DashboardPage() {
         {
             name: 'RDV Aujourd\'hui',
             value: appointmentsToday?.toString() || '0',
-            href: '/dashboard/appointments',
+            href: `/dashboard/appointments?date=${todayStr}`,
             color: 'bg-orange-50 text-orange-700',
             icon: Clock
         },

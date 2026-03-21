@@ -24,9 +24,11 @@ export async function generateMedicalSummary(text: string): Promise<string> {
             "insight": "Conscience des troubles"
         },
         "diagnosis": "Hypothèses diagnostiques (DSM-5)",
-        "plan": "Traitement et Conduite à tenir"
+        "plan": "Traitement et Conduite à tenir",
+        "prochain_rdv": "string[] (Liste des dates ou délais de rendez-vous mentionnés, ex: ['15 jours', '2 mois'])"
       }
       
+      Si plusieurs rendez-vous sont mentionnés, liste-les tous dans le tableau 'prochain_rdv'.
       Si une info est manquante, mets "Non renseigné" ou infère-la prudemment du contexte. Rester factuel.`
                 },
                 {

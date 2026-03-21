@@ -6,7 +6,7 @@ export interface Appointment {
     date: string
     duration: number
     type: string
-    status: 'programmé' | 'confirmé' | 'annulé' | 'terminé'
+    status: 'programmé' | 'confirmé' | 'annulé' | 'terminé' | 'à confirmer' | 'en attente' | 'appelé'
     notes?: string
 
     // Joined Data
