@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { PatientFilters } from '@/components/patient/PatientFilters'
 import { Plus, User, Stethoscope } from 'lucide-react'
@@ -13,10 +14,12 @@ export default async function PatientsPage({
 
     // Get current user role
     const { data: { user } } = await supabase.auth.getUser()
+    if (!user) redirect('/login')
+
     const { data: profile } = await supabase
         .from('profiles')
         .select('role')
-        .eq('id', user?.id)
+        .eq('id', user.id)
         .single()
 
     const query = typeof params.query === 'string' ? params.query : ''

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import { Appointment } from '@/types/appointments'
 import { createAppointment, confirmAppointment, cancelAppointment, rescheduleAppointment, markAsWaiting, callPatient } from './actions'
 import { Calendar, Clock, Plus, User, Check, Stethoscope, X, AlertCircle, Megaphone, UserCheck } from 'lucide-react'
@@ -13,12 +14,14 @@ export default async function AppointmentsPage({
 }) {
     const supabase = await createClient()
 
-    // 1. Auth & Role
+    // Get current user role
     const { data: { user } } = await supabase.auth.getUser()
+    if (!user) redirect('/login')
+
     const { data: profile } = await supabase
         .from('profiles')
         .select('role')
-        .eq('id', user?.id)
+        .eq('id', user.id)
         .single()
 
     const params = await searchParams

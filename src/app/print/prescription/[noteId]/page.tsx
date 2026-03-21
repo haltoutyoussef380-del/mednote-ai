@@ -81,37 +81,57 @@ export default async function PrintPrescriptionPage({ params }: { params: Promis
                     </div>
 
                     {/* TITRE */}
-                    <h1 className="text-center text-3xl font-bold underline mb-10 tracking-widest text-[#2c3e50]">
-                        ORDONNANCE
-                    </h1>
-
-                    {/* PATIENT INFO (Subtil) */}
-                    <div className="mb-8 italic text-slate-700">
-                        <p>Patient(e) : <span className="font-bold not-italic">{patient.first_name} {patient.last_name}</span></p>
+                    <div className="flex flex-col items-center mb-8">
+                        <h1 className="text-3xl font-black tracking-[0.3em] text-[#1e293b] uppercase">
+                            Ordonnance
+                        </h1>
+                        <div className="w-24 h-1 bg-primary mt-2 rounded-full"></div>
                     </div>
 
-                    {/* CORPS DE L'ORDONNANCE (LISTE DE MÉDICAMENTS) */}
+                    {/* PATIENT INFO (Elegant Badge) */}
+                    <div className="mb-10 flex items-center justify-between bg-gray-50/80 rounded-2xl p-5 border border-gray-100">
+                        <div className="flex flex-col">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-1">Patient(e)</span>
+                            <span className="text-xl font-black text-gray-900 leading-tight uppercase tracking-tight">{patient.last_name} {patient.first_name}</span>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Consultation du</span>
+                            <span className="text-sm font-bold text-gray-800">{date}</span>
+                        </div>
+                    </div>
+
+                    {/* CORPS DE L'ORDONNANCE */}
                     <div className="flex-1">
-                        <div className="space-y-4 font-serif text-lg">
+                        <div className="space-y-6 font-serif">
                             {content.prescriptions && content.prescriptions.length > 0 ? (
-                                <ul className="space-y-6">
+                                <div className="space-y-6">
                                     {content.prescriptions.map((p: any, idx: number) => (
-                                        <li key={p.id || idx} className="border-l-4 border-slate-200 pl-4 py-1">
-                                            <div className="flex flex-col">
-                                                <span className="font-bold text-xl uppercase tracking-tight">{p.nom}</span>
-                                                <div className="flex gap-4 text-base italic text-slate-600 mt-1">
-                                                    {p.dosage && <span>{p.dosage}</span>}
-                                                    {p.frequence && <span>- {p.frequence}</span>}
-                                                    {p.duree && <span>- Pendant {p.duree}</span>}
-                                                </div>
+                                        <div key={p.id || idx} className="flex flex-col border-b border-dashed border-gray-100 pb-4 last:border-0">
+                                            <div className="flex items-baseline gap-2">
+                                                <span className="text-2xl font-black text-gray-900 uppercase tracking-tighter">Rx: {p.nom}</span>
+                                                {p.dosage && <span className="text-lg font-bold text-gray-600">({p.dosage})</span>}
                                             </div>
-                                        </li>
+                                            <div className="flex flex-wrap gap-x-6 gap-y-1 text-base italic text-indigo-900/60 font-medium mt-1">
+                                                {p.frequence && (
+                                                    <span className="flex items-center gap-2">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-primary/30"></span>
+                                                        {p.frequence}
+                                                    </span>
+                                                )}
+                                                {p.duree && (
+                                                    <span className="flex items-center gap-2">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-primary/30"></span>
+                                                        Pendant {p.duree}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
                                     ))}
-                                </ul>
+                                </div>
                             ) : (
-                                <p className="whitespace-pre-wrap leading-relaxed">
+                                <div className="text-xl leading-loose text-gray-800 whitespace-pre-wrap pl-6 border-l-4 border-primary/10">
                                     {content.ordonnance || content.suivi || prescriptionText}
-                                </p>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -133,7 +153,7 @@ export default async function PrintPrescriptionPage({ params }: { params: Promis
             </div>
 
             {/* BOUTON D'IMPRESSION (Composant Client) */}
-            <PrintButton />
+            <PrintButton label="Imprimer l'Ordonnance" />
         </div>
     )
 }

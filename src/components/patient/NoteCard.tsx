@@ -47,16 +47,33 @@ export function NoteCard({ note }: NoteCardProps) {
                             {formatDate(note.created_at)}
                         </span>
                     </div>
-                    {/* Print Button */}
-                    <a
-                        href={`/print/prescription/${note.id}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-gray-400 hover:text-indigo-600 transition-colors p-1 rounded-full hover:bg-gray-100"
-                        title="Imprimer Ordonnance / PDF"
-                    >
-                        <FileText className="w-4 h-4" />
-                    </a>
+                    <div className="flex items-center gap-2">
+                        {/* Print Observation (A4) */}
+                        <a
+                            href={`/print/observation/${note.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-gray-400 hover:text-emerald-600 transition-colors p-1.5 rounded-full hover:bg-gray-100 flex items-center gap-1"
+                            title="Imprimer Observation Médicale (A4)"
+                        >
+                            <FileText className="w-4 h-4" />
+                            <span className="text-[10px] font-bold uppercase hidden sm:inline">Rapport</span>
+                        </a>
+
+                        <div className="w-px h-4 bg-gray-200" />
+
+                        {/* Print Prescription (A5) */}
+                        <a
+                            href={`/print/prescription/${note.id}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-gray-400 hover:text-indigo-600 transition-colors p-1.5 rounded-full hover:bg-gray-100 flex items-center gap-1"
+                            title="Imprimer Ordonnance (A5)"
+                        >
+                            <Activity className="w-4 h-4" />
+                            <span className="text-[10px] font-bold uppercase hidden sm:inline">Ordonnance</span>
+                        </a>
+                    </div>
                 </div>
 
                 {/* Content */}

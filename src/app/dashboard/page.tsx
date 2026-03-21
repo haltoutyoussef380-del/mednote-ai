@@ -1,10 +1,15 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Users, FileText, Calendar, Clock, Activity } from "lucide-react";
 
 export default async function DashboardPage() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        redirect("/login");
+    }
 
     // Dates pour filtre "Aujourd'hui" (Format ISO YYYY-MM-DD)
     const now = new Date();
