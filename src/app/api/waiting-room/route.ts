@@ -2,12 +2,21 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 export async function GET() {
+    console.log("WAITING ROOM API: GET request received");
+    
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+    if (!url) console.error("WAITING ROOM API: Missing NEXT_PUBLIC_SUPABASE_URL");
+    if (!serviceRoleKey) console.warn("WAITING ROOM API: Missing SUPABASE_SERVICE_ROLE_KEY, falling back to anon key");
+
     const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-        process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+        url || '',
+        serviceRoleKey || anonKey || ''
     )
     
-    // Server-side fetch (bypasses some client limitations depending on setup)
+    try {
     // Dates setup pour aujourd'hui en UTC
     const now = new Date();
     const today = now.toISOString().split('T')[0];
@@ -59,7 +68,10 @@ export async function GET() {
 
         return NextResponse.json({ data: mapAppts })
     } catch (err: any) {
-        console.error("API WAITING ROOM MAPPING ERROR:", err);
-        return NextResponse.json({ error: err.message }, { status: 500 })
+        console.error("WAITING ROOM API CRITICAL ERROR:", err);
+        return NextResponse.json({ 
+            error: err.message,
+            stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+        }, { status: 500 })
     }
 }

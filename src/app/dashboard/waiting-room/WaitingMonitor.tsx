@@ -23,7 +23,8 @@ export default function WaitingMonitor() {
     const supabase = createClient()
     const [appointments, setAppointments] = useState<Appointment[]>([])
     const [currentCall, setCurrentCall] = useState<Appointment | null>(null)
-    const [lastCalledId, setLastCalledId] = useState<string | null>(null)
+    const lastCalledIdRef = useRef<string | null>(null)
+    const [error, setError] = useState<string | null>(null)
     const [currentTime, setCurrentTime] = useState(new Date())
     const [mounted, setMounted] = useState(false)
     const [hasInteracted, setHasInteracted] = useState(false)
@@ -40,22 +41,20 @@ export default function WaitingMonitor() {
 
             if (data) {
                 const appts = data as unknown as Appointment[]
+                setError(null)
+                setAppointments(appts || [])
                 
-                // On sépare le patient actuellement appelé (si existe) des autres
                 const calledAppt = appts.find(a => a.status === 'appelé')
-                const others = appts.filter(a => a.status !== 'appelé')
-                
-                setAppointments(appts) // On garde tout pour la liste, mais le slice(1) ou autre logic pourra être adapté
                 
                 if (calledAppt) {
-                    if (calledAppt.id !== lastCalledId) {
+                    if (calledAppt.id !== lastCalledIdRef.current) {
                         setCurrentCall(calledAppt)
-                        setLastCalledId(calledAppt.id)
+                        lastCalledIdRef.current = calledAppt.id
                         announcePatient(calledAppt)
                     }
                 } else {
                     setCurrentCall(null)
-                    setLastCalledId(null)
+                    lastCalledIdRef.current = null
                 }
             }
         } catch (error) {
@@ -93,20 +92,23 @@ export default function WaitingMonitor() {
         // 1. Live Clock
         const timer = setInterval(() => setCurrentTime(new Date()), 1000)
 
-        // 2. Real-time Subscription
+        // 2. Polling Fallback (every 10 seconds)
+        const polling = setInterval(() => fetchData(), 10000)
+
+        // 3. Real-time Subscription
         const subscription = supabase
             .channel('waiting-room-changes')
             .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'appointments' }, () => {
-                console.log("Real-time update received")
                 fetchData()
             })
             .subscribe()
 
         return () => {
             clearInterval(timer)
+            clearInterval(polling)
             supabase.removeChannel(subscription)
         }
-    }, [lastCalledId])
+    }, [])
 
     if (!hasInteracted) {
         return (
