@@ -38,17 +38,24 @@ export default function WaitingMonitor() {
             }
             const { data } = await res.json()
 
-            console.log("DEBUG WAITING ROOM - fetch data:", data)
-
             if (data) {
                 const appts = data as unknown as Appointment[]
-                setAppointments(appts)
                 
-                if (appts.length > 0 && appts[0].id !== lastCalledId) {
-                    const newCall = appts[0]
-                    setCurrentCall(newCall)
-                    setLastCalledId(newCall.id)
-                    announcePatient(newCall)
+                // On sépare le patient actuellement appelé (si existe) des autres
+                const calledAppt = appts.find(a => a.status === 'appelé')
+                const others = appts.filter(a => a.status !== 'appelé')
+                
+                setAppointments(appts) // On garde tout pour la liste, mais le slice(1) ou autre logic pourra être adapté
+                
+                if (calledAppt) {
+                    if (calledAppt.id !== lastCalledId) {
+                        setCurrentCall(calledAppt)
+                        setLastCalledId(calledAppt.id)
+                        announcePatient(calledAppt)
+                    }
+                } else {
+                    setCurrentCall(null)
+                    setLastCalledId(null)
                 }
             }
         } catch (error) {
@@ -189,7 +196,7 @@ export default function WaitingMonitor() {
                     </h3>
 
                     <div className="flex-1 space-y-4 overflow-y-auto pr-2 custom-scrollbar">
-                        {appointments.slice(1).map((appt) => (
+                        {appointments.filter(a => a.status === 'en attente').map((appt) => (
                             <div key={appt.id} className="bg-white/5 border border-white/5 p-6 rounded-3xl flex items-center justify-between hover:bg-white/10 transition-colors group">
                                 <div className="flex items-center gap-4">
                                     <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center group-hover:bg-primary/20 transition-colors">
