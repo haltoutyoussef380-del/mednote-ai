@@ -70,7 +70,7 @@ export default async function AppointmentsPage({
     const allAppointments = (allAppointmentsRaw as unknown as Appointment[]) || [];
 
     // 4. Slots Logic (24/24)
-    const slots = [];
+    const slots: Date[] = [];
     let current = new Date(`${selectedDate}T00:00:00`);
     const end = new Date(`${selectedDate}T23:30:00`);
     while (current <= end) {
@@ -131,11 +131,15 @@ export default async function AppointmentsPage({
                     </div>
 
                     <div className="divide-y divide-gray-100">
-                        {slots.map((slot) => {
+                        {slots.map((slot, index) => {
                             const timeStr = slot.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+                            const nextSlot = slots[index + 1] || new Date(slot.getTime() + 30 * 60000);
+                            
                             const apptsInSlot = allAppointments.filter(a => {
-                                const aTime = new Date(a.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-                                return aTime === timeStr;
+                                const apptDate = new Date(a.date);
+                                // Un rendez-vous est dans ce créneau s'il commence entre le début du créneau (inclus) 
+                                // et le début du créneau suivant (exclu)
+                                return apptDate >= slot && apptDate < nextSlot;
                             });
 
                             return (
