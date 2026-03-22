@@ -65,7 +65,13 @@ export async function GET() {
             }
         }))
 
-        return NextResponse.json({ data: mapAppts })
+        return NextResponse.json({ 
+            data: mapAppts,
+            info: {
+                hasServiceKey: !!serviceRoleKey,
+                count: mapAppts.length
+            }
+        })
     } catch (err: any) {
         console.error("WAITING ROOM API CRITICAL ERROR:", err);
         return NextResponse.json({ 

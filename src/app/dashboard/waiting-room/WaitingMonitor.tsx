@@ -25,6 +25,7 @@ export default function WaitingMonitor() {
     const [currentCall, setCurrentCall] = useState<Appointment | null>(null)
     const lastCalledIdRef = useRef<string | null>(null)
     const [error, setError] = useState<string | null>(null)
+    const [diagInfo, setDiagInfo] = useState<{ hasServiceKey?: boolean, count?: number } | null>(null)
     const [currentTime, setCurrentTime] = useState(new Date())
     const [mounted, setMounted] = useState(false)
     const [hasInteracted, setHasInteracted] = useState(false)
@@ -43,6 +44,10 @@ export default function WaitingMonitor() {
                 const appts = data as unknown as Appointment[]
                 setError(null)
                 setAppointments(appts || [])
+                
+                // On récupère aussi les infos de diagnostic
+                const resJson = await res.clone().json()
+                if (resJson.info) setDiagInfo(resJson.info)
                 
                 const calledAppt = appts.find(a => a.status === 'appelé')
                 
@@ -138,6 +143,11 @@ export default function WaitingMonitor() {
                     </div>
                 </div>
                 <div className="flex items-center gap-6">
+                    {diagInfo && diagInfo.hasServiceKey === false && (
+                        <div className="px-4 py-2 bg-amber-500/20 border border-amber-500/50 rounded-xl text-amber-400 text-xs font-bold">
+                            ⚠️ Clé Service Role manquante sur Vercel
+                        </div>
+                    )}
                     {error && (
                         <div className="px-4 py-2 bg-red-500/20 border border-red-500/50 rounded-xl text-red-400 text-xs font-bold animate-pulse">
                             Erreur: {error}
