@@ -17,39 +17,38 @@ export async function GET() {
     )
     
     try {
-    // Dates setup pour aujourd'hui en UTC
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
-    const startOfDay = `${today}T00:00:00.000Z`;
-    const endOfDay = `${today}T23:59:59.999Z`;
+        // Dates setup pour aujourd'hui en UTC
+        const now = new Date();
+        const today = now.toISOString().split('T')[0];
+        const startOfDay = `${today}T00:00:00.000Z`;
+        const endOfDay = `${today}T23:59:59.999Z`;
 
-    const { data: apptsData, error } = await supabase
-        .from('appointments')
-        .select(`
-            id,
-            date,
-            status,
-            patient_id,
-            doctor_id,
-            patients (
-                first_name,
-                last_name
-            )
-        `)
-        .in('status', ['appelé', 'en attente'])
-        .gte('date', startOfDay)
-        .lte('date', endOfDay)
-        .order('status', { ascending: true }) // 'appelé' avant 'en attente' (a < e)
-        .order('date', { ascending: true })
+        const { data: apptsData, error } = await supabase
+            .from('appointments')
+            .select(`
+                id,
+                date,
+                status,
+                patient_id,
+                doctor_id,
+                patients (
+                    first_name,
+                    last_name
+                )
+            `)
+            .in('status', ['appelé', 'en attente'])
+            .gte('date', startOfDay)
+            .lte('date', endOfDay)
+            .order('status', { ascending: true }) // 'appelé' avant 'en attente' (a < e)
+            .order('date', { ascending: true })
 
-    if (error) {
-        console.error("API WAITING ROOM ERROR:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 })
-    }
+        if (error) {
+            console.error("WAITING ROOM API DB ERROR:", error);
+            return NextResponse.json({ error: error.message }, { status: 500 })
+        }
 
-    // Récupérer les profils (médecins) séparément
-    try {
-        const mapAppts = await Promise.all((apptsData || []).map(async (appt) => {
+        // Récupérer les profils (médecins) séparément
+        const mapAppts = await Promise.all((apptsData || []).map(async (appt: any) => {
             let profile = null;
             if (appt.doctor_id) {
                 const { data } = await supabase

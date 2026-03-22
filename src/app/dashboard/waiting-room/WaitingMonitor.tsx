@@ -138,9 +138,16 @@ export default function WaitingMonitor() {
                     </div>
                 </div>
                 <div className="flex items-center gap-6">
+                    {error && (
+                        <div className="px-4 py-2 bg-red-500/20 border border-red-500/50 rounded-xl text-red-400 text-xs font-bold animate-pulse">
+                            Erreur: {error}
+                        </div>
+                    )}
                     <div className="px-6 py-3 bg-white/5 rounded-2xl border border-white/10 flex items-center gap-3">
                         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                        <span className="text-sm font-black uppercase tracking-widest text-gray-300">Moniteur en direct</span>
+                        <span className="text-sm font-black uppercase tracking-widest text-gray-300">
+                            En direct ({appointments.length} patients)
+                        </span>
                     </div>
                     <div className="text-4xl font-black tabular-nums bg-white/5 px-6 py-3 rounded-2xl border border-white/10 shadow-inner min-w-[200px] text-center">
                         {mounted ? currentTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : "--:--:--"}
